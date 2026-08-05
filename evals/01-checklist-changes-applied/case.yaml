@@ -1,0 +1,106 @@
+schema_version: "1.1"
+name: 01-checklist-changes-applied
+description: >-
+  The second half of the checklist loop: a person pastes a changes block, and
+  the document gets edited from it — the tick applied mechanically, the two
+  notes placed by judgment rather than written into the file.
+tags: [checklist, handback, fire]
+runs: 3
+
+expected_outcome: >-
+  The one state change is applied to the source document as an exact line edit,
+  both notes are quoted back and placed deliberately, and the note on a still
+  open item is raised as a proposal to strike it — never carried out.
+
+context:
+  scaffold_script: scaffold.sh
+
+execution:
+  prompt: |
+    Somebody worked through the September release checklist and sent this back:
+
+    ### CHECKLIST CHANGES
+    source: docs/checklists/release-2026-09.md
+    title: Release 2026-09
+    based-on: fc3a3a
+    status: 2 of 5 done · 2 changed here
+
+    ## Before the freeze
+    [68a230] Update the changelog
+    ~ open → done
+    + note: wrote it from the merged PRs / the tracker milestone was half empty
+
+    [7a3495] Ask the design team to sign off on the new empty states
+    + note: design says the empty states are not in this release at all
+
+    ## Full state (control)
+    [26f0e9] ☑ Close the milestone in the tracker
+    [68a230] ☑ Update the changelog
+    [7a3495] ☐ Ask the design team to sign off on the new empty states
+    [79cc6c] ☐ Tag the release
+    [89645d] ☐ Announce it in the community channel
+
+    ### END CHECKLIST CHANGES
+  max_turns: 20
+  timeout_seconds: 420
+  allowed_tools: [Skill, Read, Glob, Grep, Bash, Write, Edit]
+
+graders:
+  # Display-only under ablation (arm deliberately unset): a trigger check,
+  # never the thing the case is scored on.
+  - type: tool_used
+    name: checklist-skill-fires
+    tool: Skill
+    input_match: 'render'
+    min: 1
+
+  # "Never parse it by eye" is the skill's instruction and the reason the
+  # parser ships. Reading the block by hand is how a control listing gets
+  # mistaken for a change and a line number lands one item off.
+  - type: tool_used
+    name: parses-with-the-shipped-script
+    tool: Bash
+    input_match: 'handback\.py'
+    min: 1
+    arm: both
+
+  # The edit half is mechanical and belongs in the document.
+  - type: tool_used
+    name: edits-the-source-document
+    tool: Edit
+    input_match: 'release-2026-09\.md'
+    min: 1
+    arm: both
+
+  # `obsolete` is never a `~` target: striking an item changes what the
+  # document says, so it is proposed to a person, not applied from a block.
+  # A `~~` reaching an edit means the note was acted on unilaterally.
+  - type: tool_used
+    name: strikes-nothing-on-its-own
+    tool: Edit
+    input_match: '~~'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: llm
+    name: applies-the-tick-and-places-the-notes
+    focus: last_message
+    criteria: |
+      Pass only if every claim below holds of the answer.
+
+      1. It reports that exactly one item changed state in the document:
+         "Update the changelog" is now ticked. No other item is reported as
+         newly ticked, and nothing is reported as struck out or removed.
+      2. Both notes are carried back in the answer, in the person's own words
+         or close to them — the changelog note about the merged PRs, and the
+         design note about the empty states. Neither is dropped for having
+         nowhere to go.
+      3. The note on "Ask the design team to sign off on the new empty states"
+         — an item that is still open — is treated as a signal, and striking
+         that item is offered as a proposal for the reader to decide. An answer
+         that silently strikes it, or that ignores the signal entirely, fails.
+      4. It does not claim to have written the notes into the checklist file.
+         The notes are editorial; the document carries instructions and state.
+      5. It says where things stand afterwards, without inventing a fact the
+         block does not carry — no invented owner, deadline or reason.

@@ -1,0 +1,16 @@
+{
+  "name": "durchnull",
+  "owner": {
+    "name": "David Friedrich"
+  },
+  "metadata": {
+    "description": "David Friedrich's Claude Code plugins."
+  },
+  "plugins": [
+    {
+      "name": "render",
+      "source": ".",
+      "description": "Project-agnostic incremental HTML page renderer — any number of self-contained pages per project, per-page section modules, fragment cache, token-based design system."
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "id": "2026-08-02-release-readiness",
+  "title": "Release readiness",
+  "intro": "Four questions before we cut a release. Answer what you know; leave the rest.",
+  "estimate": "two minutes",
+  "created": "2026-08-02",
+  "sections": [
+    {
+      "title": "State of the work",
+      "questions": [
+        {
+          "id": "tested",
+          "question": "Has the change been exercised outside the test suite?",
+          "why": "a green suite and a working feature are different claims",
+          "type": "single",
+          "options": [
+            { "key": "yes", "label": "Yes, by hand as well" },
+            { "key": "suite", "label": "Only the automated tests ran" },
+            { "key": "no", "label": "Neither, so far" }
+          ]
+        },
+        {
+          "id": "how",
+          "question": "How was it exercised?",
+          "why": "tells the next person what is already covered",
+          "type": "text",
+          "placeholder": "the path you walked through",
+          "show-if": { "question": "tested", "answer": ["yes"] }
+        },
+        {
+          "id": "breaking",
+          "question": "Does anything here change behaviour people already rely on?",
+          "why": "decides whether this is a minor bump or a note in the changelog nobody can miss",
+          "type": "single",
+          "options": [
+            { "key": "no", "label": "No, purely additive" },
+            {
+              "key": "yes",
+              "label": "Yes, something behaves differently",
+              "note": true
+            },
+            { "key": "unsure", "label": "Not sure" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Afterwards",
+      "questions": [
+        {
+          "id": "rollback",
+          "question": "If this turns out badly, how does someone undo it?",
+          "why": "the answer is usually short, and its absence is the finding",
+          "type": "text",
+          "placeholder": "one sentence"
+        }
+      ]
+    }
+  ]
+}

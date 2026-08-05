@@ -1,0 +1,82 @@
+{
+  "id": "2026-08-02-project-intake",
+  "title": "Project intake",
+  "intro": "A few questions so the next step can be planned properly.\n\nNothing here is mandatory. **Skip** anything that does not apply, and say *I don't know* wherever that is the honest answer — both are useful, and neither stops you from handing the result back.",
+  "estimate": "about 5 minutes",
+  "impact": "decides whether the work is scoped as an adaptation or as something new",
+  "created": "2026-08-02",
+  "handback-marker": "PROJECT INTAKE ANSWERS",
+  "sections": [
+    {
+      "title": "Scope",
+      "intro": "What the work has to cover, and what it must leave alone.",
+      "questions": [
+        {
+          "id": "existing",
+          "question": "Is there an existing system this has to fit into?",
+          "why": "decides whether we design freely or adapt to something that already exists",
+          "context": "An *existing system* is anything already in use that this work cannot simply replace — a running service, a spreadsheet everyone relies on, a process people have learned.",
+          "type": "single",
+          "options": [
+            {
+              "key": "fixed",
+              "label": "Yes, and it must not change",
+              "hint": "we build around it"
+            },
+            {
+              "key": "flexible",
+              "label": "Yes, but parts of it can be adapted",
+              "note": true
+            },
+            { "key": "none", "label": "No, this is new ground" }
+          ],
+          "meta": { "routes-to": "architecture" }
+        },
+        {
+          "id": "offlimits",
+          "question": "Which parts of it must keep working exactly as they do now?",
+          "why": "these become the constraints everything else is designed around",
+          "detail": "Name the components, screens or reports people depend on. If you are not sure, name the ones that would cause the loudest complaints if they broke.",
+          "type": "text",
+          "placeholder": "one per line",
+          "show-if": { "question": "existing", "answer": ["fixed", "flexible"] }
+        }
+      ]
+    },
+    {
+      "title": "Constraints",
+      "questions": [
+        {
+          "id": "budget",
+          "question": "Is there a budget ceiling we should design against?",
+          "why": "an honest ceiling is worth more than a generous estimate",
+          "type": "amount",
+          "unit": "€",
+          "placeholder": "12000",
+          "allow-note": true,
+          "note-label": "What does that figure include?"
+        },
+        {
+          "id": "matters",
+          "question": "Which of these matter most?",
+          "why": "when two of them collide, this says which one wins",
+          "context": "Pick as many as genuinely apply — but if everything matters, nothing does.",
+          "type": "multi",
+          "options": [
+            { "key": "speed", "label": "Getting something usable quickly" },
+            { "key": "cost", "label": "Keeping the cost predictable" },
+            {
+              "key": "coverage",
+              "label": "Covering every case from the start",
+              "hint": "including the rare ones"
+            },
+            {
+              "key": "handover",
+              "label": "Being able to hand it over to someone else later"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

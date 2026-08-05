@@ -1,0 +1,17 @@
+# --- Local-only working files ---
+# One generic rule, so adding a file here never publishes its name —
+# a tracked .gitignore is public writing.
+.dev/
+
+# --- macOS ---
+.DS_Store
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+
+# --- Generated component gallery (engine/gallery.py) ---
+design-gallery.html
+
+# --- Rendered output of the example project (regenerable) ---
+examples/*/.render/output/

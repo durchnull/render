@@ -1,0 +1,100 @@
+schema_version: "1.1"
+name: 02-checklist-drift-refused
+description: >-
+  The document moved while the page was open. The block's `based-on:` no longer
+  matches, `handback.py` exits 3, and the only correct answer is to stop, say
+  what changed, and offer a re-render.
+tags: [checklist, handback, drift, refuse]
+runs: 3
+
+expected_outcome: >-
+  Nothing is written to the checklist. The answer names the drift, names the
+  line that moved, and offers to re-render so the person can redo the affected
+  part.
+
+context:
+  scaffold_script: scaffold.sh
+
+execution:
+  prompt: |
+    Somebody worked through the September release checklist and sent this back:
+
+    ### CHECKLIST CHANGES
+    source: docs/checklists/release-2026-09.md
+    title: Release 2026-09
+    based-on: fc3a3a
+    status: 2 of 5 done · 2 changed here
+
+    ## Before the freeze
+    [68a230] Update the changelog
+    ~ open → done
+    + note: wrote it from the merged PRs / the tracker milestone was half empty
+
+    [7a3495] Ask the design team to sign off on the new empty states
+    + note: design says the empty states are not in this release at all
+
+    ## Full state (control)
+    [26f0e9] ☑ Close the milestone in the tracker
+    [68a230] ☑ Update the changelog
+    [7a3495] ☐ Ask the design team to sign off on the new empty states
+    [79cc6c] ☐ Tag the release
+    [89645d] ☐ Announce it in the community channel
+
+    ### END CHECKLIST CHANGES
+  max_turns: 20
+  timeout_seconds: 420
+  allowed_tools: [Skill, Read, Glob, Grep, Bash, Write, Edit]
+
+graders:
+  # Display-only under ablation (arm deliberately unset).
+  - type: tool_used
+    name: checklist-skill-fires
+    tool: Skill
+    input_match: 'render'
+    min: 1
+
+  - type: tool_used
+    name: parses-with-the-shipped-script
+    tool: Bash
+    input_match: 'handback\.py'
+    min: 1
+    arm: both
+
+  # The whole case. A diff forced onto a document that moved underneath it is
+  # how somebody's edit disappears, and neither tool leaves a trace the person
+  # would notice.
+  - type: tool_used
+    name: never-edits-the-drifted-document
+    tool: Edit
+    input_match: 'release-2026-09\.md'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: tool_used
+    name: never-overwrites-the-drifted-document
+    tool: Write
+    input_match: 'release-2026-09\.md'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: llm
+    name: reports-drift-and-asks
+    focus: last_message
+    criteria: |
+      Pass only if every claim below holds of the answer.
+
+      1. It states that the checklist file changed after the page was rendered,
+         so the pasted block cannot be applied as it stands. A drift, a stale
+         page, a fingerprint mismatch — the wording is free, the fact is not.
+      2. It reports that it changed nothing in the document.
+      3. It says what moved: the "Tag the release" item now reads "Tag the
+         release and push the tag to the remote". An answer that reports drift
+         without ever looking at what actually differs is incomplete.
+      4. It offers a way forward — re-render the page so the person can redo
+         the affected part, or confirm what they want applied — and leaves the
+         decision with them.
+      5. It does not apply the tick "because that item did not change", does
+         not propose reconciling the diff by hand, and does not suggest editing
+         the block's `based-on:` value to make the check pass.

@@ -1,0 +1,114 @@
+schema_version: "1.1"
+name: 03-questionnaire-answers-routed
+description: >-
+  The other direction of the loop: a filled questionnaire comes back, and the
+  four states that are not a plain answer — don't know, skipped, not answered,
+  and an amount typed as typed — have to survive being read.
+tags: [questionnaire, handback, fire]
+runs: 3
+
+expected_outcome: >-
+  Every item is reported with the state the block gives it, the two option keys
+  are resolved through the spec, the amount is repeated verbatim, and both notes
+  come back — including the one attached to a question nobody could answer.
+
+context:
+  scaffold_script: scaffold.sh
+
+execution:
+  prompt: |
+    The new client sent the onboarding questionnaire back. What did they say?
+
+    ### ONBOARDING ANSWERS
+    source: docs/questions/2026-09-onboarding.json
+    title: New client onboarding
+    status: 4 of 6 answered · 1 unclear · 1 skipped
+
+    ## Access
+    [systems] Which systems does the team already use?
+    → (crm) A CRM we cannot replace
+    → (sheets) Shared spreadsheets
+       note: the spreadsheets are the real source of truth / the CRM is half empty
+
+    [owner] Who owns the migration on your side?
+    → ? don't know — please follow up
+       note: probably on the operations side, but nobody is named until October
+
+    ## Budget
+    [ceiling] Is there a budget ceiling we should design against?
+    → 18000 €
+       note: includes the first year of hosting
+
+    [invoicing] How should we invoice?
+    → (skipped)
+
+    ## Timing
+    [golive] When does this have to be live?
+    → 2026-11-15
+
+    [training] How many people need training?
+    → (not answered)
+
+    ### END ONBOARDING ANSWERS
+  max_turns: 20
+  timeout_seconds: 420
+  allowed_tools: [Skill, Read, Glob, Grep, Bash, Write, Edit]
+
+graders:
+  # Display-only under ablation (arm deliberately unset).
+  - type: tool_used
+    name: questionnaire-skill-fires
+    tool: Skill
+    input_match: 'render'
+    min: 1
+
+  - type: tool_used
+    name: parses-with-the-shipped-script
+    tool: Bash
+    input_match: 'handback\.py'
+    min: 1
+    arm: both
+
+  # The spec is the question, not the answer store. Answers get routed to
+  # wherever the project keeps them; writing them back into the spec would
+  # make the next render of the same questionnaire lie.
+  - type: tool_used
+    name: never-writes-answers-into-the-spec
+    tool: Edit
+    input_match: '2026-09-onboarding\.json'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: tool_used
+    name: never-overwrites-the-spec
+    tool: Write
+    input_match: '2026-09-onboarding\.json'
+    min: 0
+    max: 0
+    arm: both
+
+  - type: llm
+    name: reports-every-state-faithfully
+    focus: last_message
+    criteria: |
+      Pass only if every claim below holds of the answer.
+
+      1. All six questions are accounted for. None is silently dropped.
+      2. The systems question reports both choices — the CRM and the shared
+         spreadsheets — resolved to what they mean, not left as bare keys.
+      3. "Who owns the migration" is reported as **don't know / needs a
+         follow-up**, which is not the same as unanswered and not the same as
+         "nobody owns it". An answer that reports it as no owner, or invents
+         one from the note, fails.
+      4. "How should we invoice" is reported as deliberately skipped, and
+         "How many people need training" as simply not answered. The two are
+         not merged into one category.
+      5. The budget is repeated as typed — 18000, with the € unit. Not rounded,
+         not reformatted with a thousands separator, not converted, not turned
+         into "about 18k".
+      6. All three notes come back: the spreadsheets being the real source of
+         truth, the operations-side follow-up, and the hosting year inside the
+         budget figure.
+      7. Nothing is invented. Every fact in the answer traces to the block or
+         to the spec file.

@@ -1,0 +1,18 @@
+{
+  "description": "Re-renders the project's pages after every Write/Edit — a silent no-op unless the project has a .render/ config directory.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/engine/render.py\" -q --if-configured || true",
+            "timeout": 20,
+            "statusMessage": "Rendering pages"
+          }
+        ]
+      }
+    ]
+  }
+}
