@@ -8,6 +8,16 @@ project follows [Semantic Versioning](https://semver.org) and
 and section contracts (including the timeline status values), the
 `STRINGS` schema and the command surface may change in a minor release.
 
+## [0.1.1] — 2026-08-09
+
+### Changed
+
+- The plugin picker now lists this plugin as **Render (Beta)**. The
+  pre-1.0 status was stated in the README and here, but nowhere a
+  user sees before installing. The label is cosmetic: the commands
+  are still `/render:*`, the install id is still `render@durchnull`,
+  and nothing about an existing installation changes.
+
 ## [0.1.0] — 2026-08-05
 
 First release.

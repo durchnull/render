@@ -2,7 +2,7 @@
   "name": "render",
   "displayName": "Render (Beta)",
   "description": "Project-agnostic incremental HTML page renderer: any number of self-contained pages per project, each designed by the consuming project as per-page section modules, fragment cache, token-based design system.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": { "name": "David Friedrich" },
   "homepage": "https://github.com/durchnull/render#readme",
   "repository": "https://github.com/durchnull/render",
