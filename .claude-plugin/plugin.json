@@ -1,6 +1,6 @@
 {
   "name": "render",
-  "displayName": "Render",
+  "displayName": "Render (Beta)",
   "description": "Project-agnostic incremental HTML page renderer: any number of self-contained pages per project, each designed by the consuming project as per-page section modules, fragment cache, token-based design system.",
   "version": "0.1.0",
   "author": { "name": "David Friedrich" },
