@@ -29,7 +29,9 @@ from pathlib import Path
 
 import project
 
-VERSION = 2
+#: 3: index records carry ``meta`` phrases and ``cover`` data instead of
+#: ``facts`` pairs — resetting the manifest re-derives every card once.
+VERSION = 3
 
 # Code that feeds into every fragment — a change forces a full rebuild.
 ENGINE_CODE = ["render.py", "cache.py", "content_core.py", "design_system.py",

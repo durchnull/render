@@ -111,7 +111,12 @@ every item id, and prints the split that matters:
 - **`edits (n)` — apply verbatim with Edit.** Exact line edits,
   `L<line>: old → new`; they are the whole mechanical half.
 - **`judgment (n)` — yours.** Notes, cleared notes, anything editorial the
-  script refuses to turn into an edit — see below.
+  script refuses to turn into an edit — see below. This is also where the
+  two person-states land: **`na`** ("does not apply" — an affirmative
+  answer) and **`deferred`** ("later"). The checkbox syntax cannot hold
+  either, so decide per item — an n/a item is usually struck (with the
+  reason) or annotated; a deferred one usually stays open, perhaps with a
+  `due:` line. Propose; never resolve silently.
 - **`control-mismatch:` / `unmatched:` / `warning:`** — the block and the
   file disagree somewhere short of drift. Read them before applying anything.
 

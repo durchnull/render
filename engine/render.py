@@ -65,7 +65,7 @@ import kinds                                                  # noqa: E402
 import project                                                # noqa: E402
 import scaffold                                               # noqa: E402
 from design_system import (                                   # noqa: E402
-    MODAL_JS, TOKENS, BASE_CSS, modal_host, set_strings,
+    FILTER_JS, MODAL_JS, SHOWALL_JS, TOKENS, BASE_CSS, modal_host, set_strings,
 )
 from page_api import check_page                               # noqa: E402
 
@@ -115,6 +115,7 @@ DEFAULT_STRINGS = {
     "preview_title": "Preview · {title}",
     "preview_note": ("Generated from <code>{module}</code>. "
                      "Not the full page — just this excerpt."),
+    "chrome_index": "Index",
 }
 
 
@@ -521,26 +522,46 @@ def build_instance(inst: Instance, page, kind, entries: dict, shared: str,
 
 # ----------------------------------------------------------------- shell ----
 
+def _pagebar(page) -> str:
+    """Cross-page chrome (design-manual.md 5.5): the identical tiny header on
+    every generated page — project mark, "← Index", rendered date. Navigation
+    is learned once; every page states its own provenance. Off when the
+    project switched the index off (there is nothing to link back to)."""
+    if not _cfg("INDEX", True):
+        return ""
+    name = safe_filename(_cfg("INDEX_FILENAME") or index.FILENAME)
+    strings = index_strings()
+    label = _strings(page).get("chrome_index", "Index")
+    generated = datetime.now().strftime(_pcfg(page, "GENERATED_FMT", "%Y-%m-%d"))
+    return (f"<div class='pagebar'><span class='k'>{_html.escape(strings['idx_kicker'])}</span>"
+            f"<a href='{_html.escape(name)}'>← {_html.escape(label)}</a>"
+            f"<span class='spacer'></span><span>{generated}</span></div>\n")
+
+
 def shell(page, body: str, tail: str, title: str = None, nav: str = "",
           hero: str = "", foot: str = "", extra_css: str = "",
-          scripts: str = "", wrap_class: str = "wrap", chrome: bool = True) -> str:
+          scripts: str = "", wrap_class: str = "wrap", chrome: bool = True,
+          topbar: bool = True) -> str:
     """Self-contained HTML page around a finished body.
 
     ``extra_css`` lands inside the same ``<style>`` block after ``BASE_CSS``
     (page-level CSS, tokens only — ``check_page()`` flags raw hex there as
     everywhere else). ``chrome=True`` adds the engine's standard page
-    furniture: the detail-modal host plus the jump-bar and modal scripts.
-    Kind pages switch it off and bring their own ``scripts`` instead of
-    shipping two dead ones. The defaults reproduce a section page's HTML
-    byte for byte.
+    furniture: the detail-modal host plus the jump-bar, modal, filter and
+    show-all scripts (the latter two no-op on pages without a
+    ``data-filter-scope`` / ``data-show-all`` attribute). Kind pages switch
+    it off and bring their own ``scripts`` instead of shipping dead ones.
+    ``topbar=True`` adds the cross-page header (5.5); the index itself and
+    standalone previews switch it off rather than link to themselves.
     """
     lang = _pcfg(page, "LANG", "en")
     favicon = _pcfg(page, "FAVICON_HREF", DEFAULT_FAVICON)
+    bar = _pagebar(page) if topbar else ""
     if chrome:
         end = f"""{modal_host()}
 <script>
 {TOC_JS}
-{MODAL_JS}{scripts}
+{MODAL_JS}{FILTER_JS}{SHOWALL_JS}{scripts}
 </script>"""
     else:
         end = f"<script>{scripts}\n</script>" if scripts else ""
@@ -555,7 +576,7 @@ def shell(page, body: str, tail: str, title: str = None, nav: str = "",
 </head>
 <body>
 <div class="{wrap_class}">
-{hero}{nav}
+{bar}{hero}{nav}
 {body}
 {foot}
 </div>
@@ -731,9 +752,8 @@ def index_record(r: Rendered, strings: dict) -> dict:
     """One card record for a finished output, whichever flavour made it."""
     if r.kind is None:
         return index.section_record(r.pid, r.page, r.out.name, strings)
-    from config import ROOT
     return index.instance_record(r.pid, r.stem, r.page, r.kind, r.spec, r.ctx,
-                                 r.out.name, r.ctx.src, Path(ROOT), strings)
+                                 r.out.name)
 
 
 def index_records(results, records: dict, pids, strings: dict) -> dict:

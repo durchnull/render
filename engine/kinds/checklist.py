@@ -97,6 +97,8 @@ STRINGS = {
     "ck_share": "{pct} % of the list",
     "ck_outside": "outside the ratio, still on the page",
     "ck_items_total": "{n} items in total",
+    "ck_set_na": "n/a — does not apply",
+    "ck_set_deferred": "later",
     "ck_changes_title": "What you changed",
     "ck_changes_lead": ("The document stays the truth. This is the difference, "
                         "ready to hand back."),
@@ -592,19 +594,23 @@ def summary(spec, ctx) -> dict:
     """
     s = ctx.strings
     counts, counted = spec["counts"], spec["counted"]
-    facts = [(s["ck_open"], counts["open"])]
+    meta = [s["ck_group_open"].format(n=counts["open"])]
     deadline = _deadline(spec, ctx)
     tone = ""
     if deadline:
         left = (deadline - date.today()).days
         tone = "crit" if left <= 0 else ("warn" if left <= DUE_SOON_DAYS else "")
-        facts.append((s["ck_days_over" if left < 0 else "ck_days_left"], abs(left)))
+        # The absolute date, not a day count: a countdown freezes at render
+        # time and starts lying the next morning (design-manual.md 5.5).
+        meta.append(s["ck_overdue" if left < 0 else "ck_due"]
+                    .format(date=deadline.isoformat()))
     if not tone and counted and not counts["open"]:
         tone = "good"
     return {
         "title": spec["title"],
         "desc": spec["meta"].get("description") or "",
-        "facts": facts,
+        "meta": meta,
+        "cover": {"form": "checks", "done": counts["done"], "total": counted},
         "badge": (s["ck_progress_done"].format(done=counts["done"], total=counted),
                   tone or "neutral"),
     }
@@ -661,8 +667,19 @@ def _item_html(item, today, s) -> str:
         context += crumbs(item["annotations"]["path"])
     context += _due_badge(item, today, s)
     detail = md_to_html("\n".join(item["detail"]), heading_base=4) if item["detail"] else ""
+    # The person's two statements beyond the tick (6.26): "does not apply" is
+    # an affirmative answer, "later" is GOV.UK's own deferral. The document
+    # cannot say either, so these exist only as user state — and an obsolete
+    # item, which is the document's statement, offers neither.
+    actions = ""
+    if item["state"] != "obsolete":
+        actions = "".join(
+            f"<button type='button' class='btn btn--ghost note-open'"
+            f" data-set='{key}' data-for='{esc(item['fp'])}'"
+            f" aria-pressed='false'>{esc(s[label])}</button>"
+            for key, label in (("na", "ck_set_na"), ("deferred", "ck_set_deferred")))
     return check_row(item["fp"], inline(item["text"]), state=item["state"],
-                     context=context, detail=detail)
+                     context=context, detail=detail, actions=actions)
 
 
 def _split_prelude(blocks) -> tuple:
@@ -1023,6 +1040,15 @@ CHECKLIST_JS = r"""
     save();
     paint();
   }
+  /* The person's own statements beyond the tick (6.26): n/a and deferred.
+     Pressing the active one takes the statement back. */
+  function setState(fp, which) {
+    if (doc[fp].s === 'obsolete') return;
+    entry(fp).s = (stateOf(fp) === which) ? 'open' : which;
+    tidy(fp);
+    save();
+    paint();
+  }
 
   function fill(tpl, values) {
     return String(tpl || '').replace(/\{(\w+)\}/g, function (whole, key) {
@@ -1046,7 +1072,7 @@ CHECKLIST_JS = r"""
   function fieldOf(fp) { return document.querySelector('[id="ck-' + fp + '-note"]'); }
 
   function paint() {
-    var counts = { open: 0, done: 0, obsolete: 0 };
+    var counts = { open: 0, done: 0, obsolete: 0, na: 0, deferred: 0 };
     order.forEach(function (fp) {
       var st = stateOf(fp);
       counts[st] += 1;
@@ -1055,6 +1081,20 @@ CHECKLIST_JS = r"""
       row.setAttribute('data-state', st);
       var tick = row.querySelector('.ck-tick');
       if (tick) tick.setAttribute('aria-pressed', st === 'done' ? 'true' : 'false');
+      /* The state tag (attention inversion, 6.26): visible on the person's
+         statements, quiet otherwise. Words come from the row's attributes —
+         the script never invents display text (11.2). */
+      var mark = row.querySelector('.ck-state');
+      if (mark && doc[fp].s !== 'obsolete') {
+        var word = (st === 'na' || st === 'deferred')
+          ? row.getAttribute('data-word-' + st) : '';
+        mark.textContent = word || '';
+        mark.hidden = !word;
+      }
+      [].slice.call(row.querySelectorAll('[data-set]')).forEach(function (b) {
+        b.setAttribute('aria-pressed',
+                       b.getAttribute('data-set') === st ? 'true' : 'false');
+      });
       var field = fieldOf(fp);
       var note = noteOf(fp);
       if (field && field.value !== note && document.activeElement !== field) {
@@ -1063,15 +1103,18 @@ CHECKLIST_JS = r"""
       if (note) openNote(fp, true);
     });
 
-    var counted = counts.open + counts.done;
+    /* n/a is an affirmative answer: it counts as handled. Deferred is open
+       work the person postponed: it stays in the denominator, unfilled. */
+    var counted = counts.open + counts.done + counts.na + counts.deferred;
+    var handled = counts.done + counts.na;
     var bar = document.querySelector('.progress .meter');
     var label = fill(main && main.getAttribute('data-progress'),
-                     { done: counts.done, total: counted });
+                     { done: handled, total: counted });
     if (bar) {
       var meter = bar.querySelector('i');
-      if (meter) meter.style.width = (counted ? counts.done / counted * 100 : 0)
+      if (meter) meter.style.width = (counted ? handled / counted * 100 : 0)
         .toFixed(1) + '%';
-      bar.setAttribute('aria-valuenow', String(counts.done));
+      bar.setAttribute('aria-valuenow', String(handled));
       bar.setAttribute('aria-valuemax', String(counted));
       bar.setAttribute('aria-label', label);
     }
@@ -1103,14 +1146,15 @@ CHECKLIST_JS = r"""
      screen — the focus card's ratio against the progress bar's. */
   function paintOverview(counts, counted) {
     if (!overview) return;
-    var pct = counted ? counts.done / counted * 100 : 0;
+    var handled = counts.done + counts.na;
+    var pct = counted ? handled / counted * 100 : 0;
     var tone = pct < 34 ? ' crit' : (pct < 67 ? ' warn' : '');
 
     var row = document.querySelector('.focus .meter-row');
     if (row) {
       text(row.querySelector('.name'),
            fill(overview.getAttribute('data-progress'),
-                { done: counts.done, total: counted }));
+                { done: handled, total: counted }));
       var meter = row.querySelector('.meter');
       if (meter) {
         meter.className = 'meter' + tone;
@@ -1124,17 +1168,19 @@ CHECKLIST_JS = r"""
       var focus = document.querySelector('.focus');
       text(focus && focus.querySelector('.value'),
            fill(overview.getAttribute('data-focus-ratio'),
-                { done: counts.done, total: counted }));
+                { done: handled, total: counted }));
       if (focus) {
         focus.className = 'focus' + (tone ? ' focus--' + tone.trim() : '');
       }
     }
 
+    /* Deferred is still work: it stays in the open tile, so "later" can
+       never quietly improve the numbers (11.6). */
     var openTile = overview.querySelector('[data-tile="open"] .value');
-    if (openTile) openTile.textContent = String(counts.open);
+    if (openTile) openTile.textContent = String(counts.open + counts.deferred);
     var doneTile = overview.querySelector('[data-tile="done"]');
     if (doneTile) {
-      text(doneTile.querySelector('.value'), String(counts.done));
+      text(doneTile.querySelector('.value'), String(handled));
       text(doneTile.querySelector('.sub'),
            fill(overview.getAttribute('data-share'), { pct: Math.round(pct) }));
     }
@@ -1151,7 +1197,8 @@ CHECKLIST_JS = r"""
       function (section) {
         var name = section.getAttribute('data-group'), still = 0;
         order.forEach(function (fp) {
-          if (doc[fp].g === name && stateOf(fp) === 'open') still += 1;
+          var st = stateOf(fp);
+          if (doc[fp].g === name && (st === 'open' || st === 'deferred')) still += 1;
         });
         var mark = section.querySelector('.section-head .badge');
         if (!mark) return;
@@ -1201,7 +1248,10 @@ CHECKLIST_JS = r"""
     lines.push('source: ' + data.source);
     lines.push('title: ' + data.title);
     lines.push('based-on: ' + data.basedOn);
-    lines.push('status: ' + counts.done + ' of ' + (counts.open + counts.done)
+    /* n/a counts as handled ("done" in the ratio); deferred does not — the
+       per-item `~` lines below carry the exact states either way. */
+    lines.push('status: ' + (counts.done + counts.na) + ' of '
+               + (counts.open + counts.done + counts.na + counts.deferred)
                + ' done · ' + moved.length + ' changed here');
     var group = null;
     moved.forEach(function (c) {
@@ -1219,6 +1269,8 @@ CHECKLIST_JS = r"""
     order.forEach(function (fp) {
       var st = stateOf(fp), label = doc[fp].t;
       lines.push('[' + fp + '] ' + (st === 'obsolete' ? '~~' + label + '~~'
+                                    : st === 'na' ? 'n/a ' + label
+                                    : st === 'deferred' ? '☐ ' + label + ' (later)'
                                     : (st === 'done' ? '☑ ' : '☐ ') + label));
     });
     lines.push('');
@@ -1231,6 +1283,9 @@ CHECKLIST_JS = r"""
     if (!t) return;
     var tick = t.closest('.ck-tick');
     if (tick) { toggle(tick.getAttribute('data-check')); return; }
+    var set = t.closest('[data-set]');
+    if (set) { setState(set.getAttribute('data-for'),
+                        set.getAttribute('data-set')); return; }
     var pick = t.closest('.ck-filters [data-filter]');
     if (pick) { setFilter(pick.getAttribute('data-filter')); return; }
     var opener = t.closest('[data-note-open]');

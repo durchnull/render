@@ -8,7 +8,9 @@ allowed-tools: Read, Write, Edit, Glob, Bash(python3:*)
 The project needs another self-contained HTML page. Pages are the unit the
 engine thinks in: a project declares any number, each designed by the
 project itself. The plugin brings the shell, the fragment cache, the design
-system and the checks; the page brings its content.
+system and the checks; the page brings its content — and what earns a place
+in that content is a decision, made before markup (design-manual.md 5.1;
+the section-page file opens with the content-budget step).
 
 If `.render/` does not exist yet, run `/render:init` first.
 

@@ -46,11 +46,15 @@ A kind module fulfils this contract:
     summary(spec, ctx) -> dict
                 optional: how this instance introduces itself on the index
                 page — ``title``, ``desc`` (prose, markdown welcome),
-                ``facts`` (label/value pairs) and ``badge`` (text, tone).
+                ``meta`` (finished localized phrases for the card's one
+                meta line), ``cover`` (JSON-safe data the card's cover
+                motif is drawn from: ``{"form": "checks", "done", "total"}``
+                or ``{"form": "list", "n"}``) and ``badge`` (text, tone).
                 Every key is optional; without the hook the index falls
-                back to the spec's own title. Called for cached instances
-                too, so it must read the spec and nothing else — never the
-                rendered HTML, which may not have been built this run.
+                back to the spec's own title and the document cover motif.
+                Called for cached instances too, so it must read the spec
+                and nothing else — never the rendered HTML, which may not
+                have been built this run.
     scripts()   optional: inline JS for the page, appended inside the
                 shell's own <script> block.
     check(spec, html) -> list[str]

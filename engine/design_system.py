@@ -66,13 +66,22 @@ STRINGS = {
     "state_answered": "answered",
     "state_unclear": "don't know",
     "state_skipped": "skipped",
-    "state_open": "open",
+    "state_open": "not provided",
     "check_obsolete": "obsolete",
+    "check_todo": "to do",
+    "check_na": "n/a",
+    "check_deferred": "later",
     "check_note_open": "+ add a note",
     "check_note_label": "Anything to add?",
     "check_note_placeholder": "in your own words",
+    "toc_contents": "Contents",
     "copy_ok": "copied to the clipboard",
     "copy_manual": "could not copy — select the block below and copy it by hand",
+    # List behavior (6.5 / 6.6) — filter pills and the show-all trigger.
+    "filter_aria": "Filter",
+    "filter_all": "all",
+    "filter_empty": "nothing matches this filter",
+    "show_all": "show all {n}",
 }
 
 
@@ -94,34 +103,81 @@ def set_strings(overrides) -> None:
 # Colors: neutral gray + one violet accent (screenshot template).
 # Contrasts (WCAG, against the respective surface) are noted in the trailing comments;
 # series colors are checked for contrast + color-vision deficiency — see design-manual.md 2.4.
+#
+# The architecture underneath (design-manual.md 2.1): two Geist-style
+# 10-step scales, identical structure for gray and violet — steps 100–300
+# are backgrounds, 400–600 lines and borders, 700 reserved, 800 meta text,
+# 900 secondary text, 1000 primary text. The semantic tokens below are
+# assigned FROM these tables, so dark mode is a re-derivation of the same
+# structure instead of a set of per-component overrides. The "surface" and
+# "raised" keys carry the card tier, which sits between the numeric steps
+# in dark mode and is plain white in light mode.
+#
+# Dark surfaces are tinted 2–3 % toward the violet hue (design-manual.md
+# 2.1/8) — never pure neutral black. Text steps stay neutral.
+
+GRAY = {
+    "light": {100: "#f9f9fb", 200: "#f5f5f7", 300: "#eaecf0",
+              400: "#d0d5dd", 500: "#b9bec8", 600: "#98a2b3",
+              700: "#7d8698", 800: "#667085", 900: "#475467",
+              1000: "#101828",
+              "surface": "#ffffff", "raised": "#ffffff"},
+    "dark": {100: "#121118", 200: "#0d0c12", 300: "#2b2a33",
+             400: "#3b3a45", 500: "#5e5d6b", 600: "#85888e",
+             700: "#8b8d94", 800: "#94969c", 900: "#cecfd2",
+             1000: "#f7f7f8",
+             "surface": "#17161c", "raised": "#1f1e25"},
+}
+
+VIOLET = {
+    "light": {100: "#f4f3ff", 200: "#ebe9fe", 300: "#d9d6fe",
+              400: "#bdb4fe", 500: "#9e77ed", 600: "#7f56d9",
+              700: "#6941c6", 800: "#53389e", 900: "#42307d",
+              1000: "#2c1c5f"},
+    # Dark mode re-derives by role: text lightens past the 400 step, the
+    # solid surface stays put, and the soft tiers become translucent 600.
+    "dark": {"text": "#b9a7fc", "solid": "#7f56d9",
+             "soft": "rgba(127,86,217,0.18)", "line": "rgba(127,86,217,0.45)",
+             "series": "#9e77ed"},
+}
+
+_SCALE = {}
+for _mode in ("light", "dark"):
+    for _step, _value in GRAY[_mode].items():
+        _SCALE[f"g{_step}" if _mode == "light" else f"gd{_step}"] = _value
+for _step, _value in VIOLET["light"].items():
+    _SCALE[f"v{_step}"] = _value
+for _role, _value in VIOLET["dark"].items():
+    _SCALE[f"vd_{_role}"] = _value
 
 TOKENS = """
 :root {
   color-scheme: light;
 
   /* Surfaces */
-  --plane: #f5f5f7;        /* page background */
-  --surface: #ffffff;      /* cards, tiles, table surfaces */
-  --raised: #ffffff;       /* controls on cards */
-  --inset: #f9f9fb;        /* inset blocks: code, quote, context */
+  --plane: %(g200)s;        /* page background */
+  --surface: %(gsurface)s;      /* cards, tiles, table surfaces */
+  --raised: %(graised)s;       /* controls on cards */
+  --inset: %(g100)s;        /* inset blocks: code, quote, context */
+  --plane-read: #fbfaf6;   /* the article tier's warm plane (11b) */
 
   /* Text */
-  --ink: #101828;          /* 17.8:1 — headings, values */
-  --ink-2: #475467;        /* 7.7:1  — body text, labels */
-  --muted: #667085;        /* 5.0:1  — meta, axes, timestamps */
-  --faint: #98a2b3;        /* 2.6:1  — decoration/icons/disabled ONLY, never text */
+  --ink: %(g1000)s;          /* 17.8:1 — headings, values */
+  --ink-2: %(g900)s;        /* 7.7:1  — body text, labels */
+  --muted: %(g800)s;        /* 5.0:1  — meta, axes, timestamps */
+  --faint: %(g600)s;        /* 2.6:1  — decoration/icons/disabled ONLY, never text */
 
   /* Lines */
-  --hairline: #eaecf0;     /* dividers, gridlines, table rules */
+  --hairline: %(g300)s;     /* dividers, gridlines, table rules */
   --border: rgba(16,24,40,0.10);
   --shadow: 0 1px 2px rgba(16,24,40,0.05);
   --shadow-lift: 0 2px 8px rgba(16,24,40,0.07);
 
   /* Accent */
-  --accent: #6941c6;       /* 6.6:1 — links, active states, text */
-  --accent-solid: #7f56d9; /* surfaces; white on top 5.0:1 */
-  --accent-soft: #f4f3ff;  /* badge/icon background */
-  --accent-line: #d9d6fe;  /* border of soft accent surfaces */
+  --accent: %(v700)s;       /* 6.6:1 — links, active states, text */
+  --accent-solid: %(v600)s; /* surfaces; white on top 5.0:1 */
+  --accent-soft: %(v100)s;  /* badge/icon background */
+  --accent-line: %(v300)s;  /* border of soft accent surfaces */
   --on-accent: #ffffff;    /* text on --accent-solid; 5.0:1 */
 
   /* Status — text/border (dark step) */
@@ -138,7 +194,7 @@ TOKENS = """
   --critical-soft: #fef3f2;
 
   /* Categorical series colors — fixed order, never rotate, max. 6 */
-  --series-1: #6941c6;  /* violet   */
+  --series-1: %(v700)s;  /* violet   */
   --series-2: #0e9384;  /* teal     */
   --series-3: #1570ef;  /* blue     */
   --series-4: #e04f16;  /* orange   */
@@ -146,9 +202,9 @@ TOKENS = """
   --series-6: #ca8504;  /* yellow   */
 
   /* Chart chrome */
-  --chart-grid: #eaecf0;
-  --chart-axis: #d0d5dd;
-  --chart-compare: #b9bec8;   /* previous-period line */
+  --chart-grid: %(g300)s;
+  --chart-axis: %(g400)s;
+  --chart-compare: %(g500)s;   /* previous-period line */
 
   /* Spacing (4-px grid) */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px;
@@ -158,8 +214,10 @@ TOKENS = """
   --r-card: 14px; --r-tile: 12px; --r-input: 10px; --r-btn: 9px;
   --r-chip: 999px; --r-small: 6px;
 
-  /* Type */
+  /* Type. The serif stack is the article tier's reading face (11b) — real
+     book faces every OS ships; the apparatus around the text stays sans. */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Font sizes — exactly one step per hierarchy level (design-manual.md, 3.1).
@@ -169,8 +227,12 @@ TOKENS = """
   --fs-h3: 19px;           /* E3  card/group title                  */
   --fs-h4: 16px;           /* E4  subheading in body text, rows     */
   --fs-body: 15px;         /* E5  body text                         */
-  --fs-read: 17px;         /*     long-form body text (ARTICLE_CSS)  */
+  --fs-read: 18px;         /*     long-form body text, serif (ARTICLE_CSS) */
   --fs-lede: 21px;         /*     lede / pull quote (ARTICLE_CSS)    */
+  /* The reading measure (11b.6) as a length, not ch: a ch-based cap would
+     resize with every child's own font and misalign headings with prose. */
+  --measure-read: 600px;   /*     ~66 ch of Charter at --fs-read      */
+  --measure-wide: 860px;   /*     the wide tier: tables, code         */
   --fs-sub: 14.5px;        /*     secondary text, section subline   */
   --fs-label: 13.5px;      /*     metric label, table cell          */
   --fs-meta: 12.5px;       /*     meta, timestamps, footer          */
@@ -184,25 +246,26 @@ TOKENS = """
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --plane: #0c0c0f;
-    --surface: #17171b;
-    --raised: #1f1f23;
-    --inset: #121216;
+    --plane: %(gd200)s;
+    --surface: %(gdsurface)s;
+    --raised: %(gdraised)s;
+    --inset: %(gd100)s;
+    --plane-read: #141318;
 
-    --ink: #f7f7f8;        /* 16.7:1 */
-    --ink-2: #cecfd2;      /* 11.5:1 */
-    --muted: #94969c;      /* 6.1:1  */
-    --faint: #85888e;      /* 5.0:1  */
+    --ink: %(gd1000)s;        /* 16.7:1 */
+    --ink-2: %(gd900)s;      /* 11.5:1 */
+    --muted: %(gd800)s;      /* 6.1:1  */
+    --faint: %(gd600)s;      /* 5.0:1  */
 
-    --hairline: #2a2a31;
+    --hairline: %(gd300)s;
     --border: rgba(255,255,255,0.10);
     --shadow: none;
     --shadow-lift: none;
 
-    --accent: #b9a7fc;     /* 8.5:1 */
-    --accent-solid: #7f56d9;
-    --accent-soft: rgba(127,86,217,0.18);
-    --accent-line: rgba(127,86,217,0.45);
+    --accent: %(vd_text)s;     /* 8.5:1 */
+    --accent-solid: %(vd_solid)s;
+    --accent-soft: %(vd_soft)s;
+    --accent-line: %(vd_line)s;
     --on-accent: #ffffff;
 
     --good: #47cd89;       /* 8.8:1 */
@@ -216,19 +279,19 @@ TOKENS = """
     --warning-soft: rgba(247,144,9,0.16);
     --critical-soft: rgba(240,68,56,0.16);
 
-    --series-1: #9e77ed;
+    --series-1: %(vd_series)s;
     --series-2: #0e9384;
     --series-3: #2e90fa;
     --series-4: #e04f16;
     --series-5: #dd2590;
     --series-6: #b08903;
 
-    --chart-grid: #2a2a31;
-    --chart-axis: #3a3a42;
-    --chart-compare: #5d6069;
+    --chart-grid: %(gd300)s;
+    --chart-axis: %(gd400)s;
+    --chart-compare: %(gd500)s;
   }
 }
-"""
+""" % _SCALE
 
 # --------------------------------------------------------------- base css ----
 
@@ -248,10 +311,35 @@ section { margin-top: var(--s9); scroll-margin-top: 76px; }
 .grid { display: grid; gap: var(--s4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid--2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .tiles { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+
+/* Bento grid (design-manual.md 5.2c): importance decides span — only for
+   pages whose author genuinely ranked the tiles. DOM order = visual order. */
+.bento { display: grid; gap: var(--s4); grid-template-columns: repeat(6, 1fr); }
+.bento > .card, .bento > .tile { margin-bottom: 0; height: 100%; }
+.bento .b-2 { grid-column: span 2; }
+.bento .b-3 { grid-column: span 3; }
+.bento .b-4 { grid-column: span 4; }
+.bento .b-6 { grid-column: span 6; }
+.bento .b-hero { grid-column: span 4; grid-row: span 2; }
+@media (max-width: 820px) {
+  .bento { grid-template-columns: 1fr; }
+  .bento > * { grid-column: auto !important; grid-row: auto !important; }
+}
 .row { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
 .spacer { flex: 1 1 auto; }
 
 /* ---- Header & navigation ------------------------------------------------ */
+/* Cross-page chrome (5.5): the same tiny header on every generated page —
+   project mark, the way back to the index, the rendered date. Navigation
+   learned once; provenance stated once. */
+.pagebar { display: flex; align-items: baseline; gap: var(--s3);
+  padding: var(--s3) 0 var(--s2); border-bottom: 1px solid var(--hairline);
+  color: var(--muted); font: 400 12px var(--font-mono);
+  font-variant-numeric: tabular-nums; }
+.pagebar .k { letter-spacing: 0.05em; text-transform: uppercase; font-size: 11px; }
+.pagebar a { color: var(--muted); text-decoration: none; }
+.pagebar a:hover { color: var(--accent); }
+
 header.hero { padding: var(--s9) 0 var(--s4); }
 .eyebrow {
   display: inline-flex; align-items: center; gap: var(--s2);
@@ -292,6 +380,11 @@ nav.toc a.is-active { background: var(--accent-soft); color: var(--accent); box-
 .section-head h2 {
   font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022em; line-height: 1.15; margin: 0;
 }
+/* Count chip on a section head (6.0): magnitude before content. */
+.section-head h2 .tag {
+  vertical-align: 5px; margin-left: var(--s2); color: var(--muted);
+  font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
 .section-head .sub { color: var(--muted); font-size: var(--fs-sub); margin: 6px 0 0; max-width: 64ch; }
 .section-head .eyebrow { margin-bottom: var(--s2); }
 section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022em; margin: 0 0 var(--s5); }
@@ -304,12 +397,15 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
 .card--flat { box-shadow: none; }
 .card--pad { padding: var(--s6); }
 .card-head { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s1); }
+.card-head .icon-badge { align-self: center; width: 28px; height: 28px;
+  margin-right: var(--s1); }
 .card-title { font-size: var(--fs-h3); font-weight: 600; letter-spacing: -0.012em; margin: 0; }
 .card-sub { font-size: var(--fs-meta); color: var(--muted); margin: 0 0 var(--s4); }
 .card-foot {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
   margin-top: var(--s5); padding-top: var(--s3); border-top: 1px solid var(--hairline);
-  font-size: var(--fs-meta); color: var(--muted);
+  color: var(--muted); font: 400 12px var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- Group title inside a card (level 3) ------------------------------- */
@@ -329,7 +425,8 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-tile);
   box-shadow: var(--shadow); padding: var(--s4) var(--s5);
 }
-.tile-head { display: flex; align-items: flex-start; gap: var(--s2); min-height: 34px; }
+/* Chips wrap under the label when the tile is narrow — never past the edge. */
+.tile-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s2); min-height: 34px; }
 .tile .label { flex: 1 1 auto; font-size: var(--fs-label); font-weight: 500; line-height: 1.35; color: var(--ink-2); }
 .tile .value { font-size: var(--fs-value); font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; margin-top: var(--s2); }
 .tile .value.sm { font-size: var(--fs-value-sm); }
@@ -337,6 +434,25 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
 .tile .spark { margin-top: var(--s3); }
 .tile--quiet { background: transparent; box-shadow: none; border-style: dashed; }
 .tile--quiet .value { font-size: var(--fs-value-sm); }
+/* Tile variants (6.1): a one-sentence verdict, a capacity bar, a triplet. */
+.tile .trend { display: flex; align-items: baseline; gap: 6px; font-size: var(--fs-meta);
+  color: var(--ink-2); margin-top: var(--s2); }
+.tile .trend .dir { color: var(--muted); font-size: 11px; }
+.tile .capacity { margin-top: var(--s3); }
+.tile .capacity .meter { display: block; }
+.tile .capacity .cap-note { font-size: var(--fs-meta); color: var(--muted);
+  font-variant-numeric: tabular-nums; margin-bottom: var(--s1); }
+/* Two columns, never three: a third stat wraps to a second row (2x2), so a
+   tile-sized card never crams three columns into its own width. */
+.tile-trio { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; }
+.tile-trio > div { min-width: 0; }
+.tile-trio > div:nth-child(odd) { padding-right: var(--s4); }
+.tile-trio > div:nth-child(even) { padding-left: var(--s4); border-left: 1px solid var(--hairline); }
+.tile-trio > div:nth-child(n+3) { border-top: 1px solid var(--hairline); padding-top: var(--s3); margin-top: var(--s3); }
+.tile-trio .label { font-size: var(--fs-label); font-weight: 500; color: var(--ink-2); }
+.tile-trio .value { font-size: var(--fs-value-sm); font-weight: 600; letter-spacing: -0.02em;
+  margin-top: var(--s1); font-variant-numeric: tabular-nums; }
+.tile-trio .sub { font-size: var(--fs-meta); color: var(--muted); margin-top: 2px; }
 .icon-badge {
   flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
   background: var(--accent-soft); color: var(--accent); font-size: 16px; line-height: 1;
@@ -370,6 +486,22 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
 .focus .aside .v strong { font-weight: 600; }
 .focus .meter-row { grid-template-columns: max-content 1fr 46px; padding: 0; }
 
+/* ---- Metric-tab hero (design-manual.md 5.2b) ------------------------------ */
+/* One hero chart card whose header row IS the KPI strip: one metric marked
+   active (violet underline) and plotted below. Static — no series switching. */
+.metric-tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--hairline);
+  margin: 0 0 var(--s5); }
+.metric-tabs .mt { min-width: 0; padding: var(--s2) var(--s5) var(--s3) var(--s4);
+  border-left: 1px solid var(--hairline); border-bottom: 2px solid transparent;
+  margin-bottom: -1px; }
+.metric-tabs .mt:first-child { border-left: 0; padding-left: 0; }
+.metric-tabs .mt .label { font-size: var(--fs-label); font-weight: 500; color: var(--ink-2); }
+.metric-tabs .mt .value { font-size: var(--fs-value-sm); font-weight: 600;
+  letter-spacing: -0.02em; margin-top: var(--s1); font-variant-numeric: tabular-nums; }
+.metric-tabs .mt .sub { font-size: var(--fs-meta); color: var(--muted); margin-top: 2px; }
+.metric-tabs .mt.is-active { border-bottom-color: var(--accent-solid); }
+.metric-tabs .mt.is-active .label { color: var(--ink); font-weight: 600; }
+
 /* ---- Status mark in body text (replaces colorful emoji) ----------------- */
 .mark {
   display: inline-grid; place-items: center; width: 19px; height: 19px; flex: none;
@@ -386,6 +518,7 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
   display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
   font-size: 12px; font-weight: 600; border-radius: var(--r-chip); padding: 2px 9px;
   background: var(--inset); color: var(--ink-2); border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
 }
 .badge--good, .delta.up   { background: var(--good-soft); color: var(--good); border-color: transparent; }
 .badge--warn              { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
@@ -400,7 +533,10 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
   font-size: 11px; font-weight: 600; color: var(--ink-2);
   border: 1px solid var(--border); border-radius: var(--r-chip); padding: 1px 8px;
 }
-.stamp { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+/* Metadata reads as instrument, not brochure (3.3): timestamps, sources and
+   counts take the system mono stack — numbers align for free. */
+.stamp { display: inline-flex; align-items: center; gap: 5px; color: var(--muted);
+  font: 400 12px var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* ---- Navigation path inside a foreign interface (6.3b) ------------------ */
 .crumbs {
@@ -437,6 +573,10 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
 .tabs .is-active { color: var(--ink); border-bottom-color: var(--accent-solid); font-weight: 600; }
 .filters { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-bottom: var(--s4); }
 .filters .note { font-size: 13px; color: var(--muted); }
+.filters button.chip { font: inherit; font-size: 12.5px; font-weight: 500; background: var(--surface); cursor: pointer; }
+.filters button.chip:hover { background: var(--inset); color: var(--ink); }
+.filters button.chip.is-active { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.is-filtered-out { display: none !important; }
 
 /* ---- Lists ------------------------------------------------------------- */
 .list { display: flex; flex-direction: column; }
@@ -448,6 +588,8 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
 .list-row .main { display: block; font-size: 14px; font-weight: 500; }
 .list-row .sub { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .list-row .value { margin-left: auto; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.is-truncated { display: none; }
+.show-all { margin-top: var(--s3); }
 
 /* ---- Meters / share bars ------------------------------------------------ */
 .meter-row { display: grid; grid-template-columns: 1fr 120px 46px; align-items: center; gap: var(--s3); padding: 7px 0; }
@@ -462,6 +604,33 @@ section > h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022
 .share-bar > span { display: block; height: 100%; }
 .share-bar > span:first-child { border-radius: 4px 0 0 4px; }
 .share-bar > span:last-child { border-radius: 0 4px 4px 0; }
+
+/* ---- Ranked bar list (design-manual.md 6.27) ------------------------------ */
+/* The analytics workhorse: a proportional accent-tinted bar BEHIND each
+   label/value row. Magnitude is visible before a single number is read. */
+.bar-list { display: flex; flex-direction: column; }
+.bar-row { position: relative; display: flex; align-items: center; gap: var(--s3);
+  min-height: 32px; padding: 0 var(--s2); }
+.bar-row .fill { position: absolute; top: 3px; bottom: 3px; left: 0;
+  border-radius: var(--r-small); background: var(--accent-soft); }
+.bar-row .name, .bar-row .value { position: relative; min-width: 0; }
+.bar-row .name { flex: 1 1 auto; font-size: 13.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-row .name .sub { font-size: var(--fs-meta); color: var(--muted); margin-left: var(--s2); }
+.bar-row .value { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---- Tracker strip (design-manual.md 6.28) -------------------------------- */
+/* Status over time as contiguous blocks: anomalies pop as color breaks.
+   Status tokens only; a slice with nothing to say stays hairline gray. */
+.tracker { display: flex; gap: 1px; height: 10px; margin: var(--s2) 0; }
+.tracker > span { flex: 1 1 0; background: var(--hairline); min-width: 2px; }
+.tracker > span:first-child { border-radius: 4px 0 0 4px; }
+.tracker > span:last-child { border-radius: 0 4px 4px 0; }
+.tracker > .t-good { background: var(--good-mark); }
+.tracker > .t-warn { background: var(--warning-mark); }
+.tracker > .t-crit { background: var(--critical-mark); }
+.tracker-meta { display: flex; justify-content: space-between; gap: var(--s3);
+  font-size: var(--fs-meta); color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* ---- Charts -------------------------------------------------------------- */
 figure { margin: 0 0 var(--s4); }
@@ -526,10 +695,21 @@ th {
   text-align: left; font-size: var(--fs-eyebrow); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--muted); padding: 8px 14px 8px 0; border-bottom: 1px solid var(--hairline); white-space: nowrap;
 }
-td { padding: 9px 14px 9px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+td { padding: 9px 14px 9px 0; border-bottom: 1px solid var(--hairline); vertical-align: top;
+     font-variant-numeric: tabular-nums; }
 tbody tr:last-child td { border-bottom: 0; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+td.num, th.num { text-align: right; padding-right: 0; }
+td.ctr, th.ctr { text-align: center; }
 td.total, tr.total td { font-weight: 600; color: var(--ink); border-top: 2px solid var(--hairline); }
+/* Table-first sections (6.9): a compact variant chosen at generation time
+   (never a toggle), and a sticky tinted header band for a full-width table
+   that fits without .table-wrap — sticky cannot work inside a scroll box. */
+.table--dense th { padding-top: 5px; padding-bottom: 5px; }
+.table--dense td { padding-top: 6px; padding-bottom: 6px; }
+.table--sticky thead th { position: sticky; top: 52px; z-index: 2;
+  background: var(--inset); box-shadow: 0 1px 0 var(--hairline); border-bottom: 0;
+  padding-left: var(--s2); }
+.table--sticky td { padding-left: var(--s2); }
 
 /* ---- Collapsibles -------------------------------------------------------- */
 details { border-top: 1px solid var(--hairline); }
@@ -541,7 +721,8 @@ summary {
 summary::-webkit-details-marker { display: none; }
 summary::before { content: "▸"; color: var(--faint); font-size: 12px; }
 details[open] > summary::before { content: "▾"; }
-summary .meta { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: auto; }
+summary .meta { color: var(--muted); margin-left: auto;
+  font: 400 11.5px var(--font-mono); font-variant-numeric: tabular-nums; }
 details .body { padding: 0 2px var(--s4) var(--s5); }
 
 /* Dossier/entry row: collapsible, yet readable as a row (6.14) */
@@ -727,9 +908,11 @@ dialog.modal::backdrop { background: rgba(12, 12, 15, 0.55); }
 }
 @media print {
   body { background: #fff; }
-  nav.toc, .btn { display: none; }
+  nav.toc, .btn, .filters, .show-all, .pagebar a { display: none; }
   .card, .tile { box-shadow: none; break-inside: avoid; }
   details { open: true; }
+  /* Printed, a list shows everything — view state is not document state. */
+  .is-filtered-out, .is-truncated { display: revert !important; }
 }
 """
 
@@ -832,8 +1015,15 @@ FORM_CSS = """
 .ck-tick:disabled { cursor: not-allowed; opacity: .45; box-shadow: none; }
 .ck-body { min-width: 0; flex: 1 1 auto; max-width: 68ch; }
 .ck-text { display: block; font-size: var(--fs-h4); font-weight: 500; line-height: 1.4; }
+/* Attention inversion (6.26): the states still asking for work carry the
+   tag; done and n/a sit quiet — color and marks point at what is pending. */
 .ck-row[data-state="done"] .ck-text { color: var(--ink-2); }
+.ck-row[data-state="na"] .ck-text { color: var(--muted); }
+.ck-row[data-state="na"] .ck-tick { opacity: .45; }
+.ck-row[data-state="deferred"] .ck-state { background: var(--warning-soft);
+  color: var(--warning); border-color: transparent; }
 .ck-row[data-state="obsolete"] .ck-text { color: var(--muted); text-decoration: line-through; }
+.ck-row .ck-state { flex: none; margin-left: auto; align-self: flex-start; margin-top: 4px; }
 .ck-context {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; margin-top: var(--s2);
 }
@@ -924,57 +1114,117 @@ APP_CSS = """
 # ------------------------------------------------------------- article css ----
 # design-manual.md 11b: the long-form flavour. A dashboard packs facts into a
 # scannable grid; an article asks to be read from top to bottom, so the column
-# narrows, the type grows and the vertical rhythm opens up. Opt-in like
-# FORM_CSS/APP_CSS — a page that shows numbers carries none of it.
+# narrows, the type turns serif and the vertical rhythm opens up. Two voices
+# (11b.1): the text reads in the OS's book face (--font-serif), everything
+# around it — masthead, meta, captions, asides, sources — stays the sans
+# apparatus. Opt-in like FORM_CSS/APP_CSS — a page that shows numbers carries
+# none of it.
 
 ARTICLE_CSS = """
+/* The reading page: warm plane, wide shell for the three width tiers (11b.6).
+   Prose is capped per child, so wide tables, code and full-bleed figures can
+   escape the measure without a second column system. */
+body:has(.article) { background: var(--plane-read); }
+.wrap--read { max-width: 1160px; }
+
 /* ---- Masthead ------------------------------------------------------------ */
-.article-head { padding: var(--s9) 0 var(--s6); }
+.article-head { padding: var(--s9) 0 var(--s6); max-width: var(--measure-read); margin: 0 auto; }
 .article-head h1 {
-  font-size: var(--fs-hero); font-weight: 650; letter-spacing: -0.03em;
+  font-size: clamp(1.9rem, 1.2rem + 3vw, 3.2rem); font-weight: 650;
+  letter-spacing: -0.03em;
   line-height: 1.06; margin: 0 0 var(--s4); color: var(--ink); text-wrap: balance;
 }
 .article-head .lede {
   font-size: var(--fs-lede); line-height: 1.5; color: var(--ink-2);
   margin: 0 0 var(--s5); max-width: 48ch;
 }
+/* Tracked caps, never font-variant small caps — system fonts fake those (3.3). */
 .article-head .meta {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
   padding-top: var(--s4); border-top: 1px solid var(--hairline);
-  font-size: var(--fs-meta); color: var(--muted);
+  font-size: var(--fs-eyebrow); font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 .article-head .meta .sep { color: var(--faint); }
 
-/* ---- The reading column -------------------------------------------------- */
-.article { font-size: var(--fs-read); line-height: 1.72; color: var(--ink-2); }
-.article p { margin: var(--s5) 0; }
+/* ---- Mini-TOC (11b.7) — for documents with four or more sections --------- */
+.mini-toc { border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
+  font-family: var(--font); font-size: var(--fs-sub); padding: var(--s2) 0;
+  max-width: var(--measure-read); margin: 0 auto var(--s6); }
+.mini-toc > summary { padding: var(--s2) 2px; font-weight: 500;
+  font-size: var(--fs-eyebrow); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); }
+.mini-toc ol { margin: var(--s2) 0 var(--s3); padding-left: 24px; color: var(--ink-2); }
+.mini-toc li { margin: 4px 0; }
+.mini-toc a { color: var(--accent); text-decoration: none; }
+.mini-toc a:hover { text-decoration: underline; }
+
+/* ---- The reading column (11b.1) ------------------------------------------ */
+.article { font-family: var(--font-serif); font-size: var(--fs-read);
+  line-height: 1.55; color: var(--ink-2); }
+/* Width tiers (11b.6): prose at the measure, tables and code one tier wider,
+   full-bleed by opt-in. Margins stay block-only so the caps keep centering. */
+.article > * { max-width: var(--measure-read); margin-left: auto; margin-right: auto; }
+.article > .table-wrap, .article > pre { max-width: min(var(--measure-wide), 100%); }
+.article > .full-bleed, .article > figure.full-bleed { max-width: none; }
+.article p { margin-block: var(--s5); }
 .article h2 {
-  font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.022em; line-height: 1.2;
-  color: var(--ink); margin: var(--s9) 0 var(--s4);
+  font-family: var(--font); font-size: clamp(1.45rem, 1.15rem + 1.1vw, 1.7rem);
+  font-weight: 600; letter-spacing: -0.022em; line-height: 1.2;
+  color: var(--ink); margin-block: var(--s9) var(--s4);
 }
 .article h3 {
-  font-size: var(--fs-h3); font-weight: 600; color: var(--ink);
-  margin: var(--s7) 0 var(--s3);
+  font-family: var(--font); font-size: var(--fs-h3); font-weight: 600;
+  color: var(--ink); margin-block: var(--s7) var(--s3);
 }
-.article h4 { font-size: var(--fs-h4); font-weight: 600; color: var(--ink); margin: var(--s6) 0 var(--s2); }
+.article h4 { font-family: var(--font); font-size: var(--fs-h4); font-weight: 600;
+  color: var(--ink); margin-block: var(--s6) var(--s2); }
 .article > :first-child { margin-top: 0; }
-.article ul, .article ol { margin: var(--s5) 0; padding-left: 26px; }
-.article li { margin: var(--s2) 0; }
-.article li > ul, .article li > ol { margin: var(--s2) 0; }
+.article ul, .article ol { margin-block: var(--s5); padding-left: 26px; }
+.article li { margin-block: var(--s2); }
+.article li > ul, .article li > ol { margin-block: var(--s2); }
 .article strong { color: var(--ink); }
 /* In a reading column the inline chip has to sit inside the line, not push it
    apart — the border and the larger type around it already separate it. */
 .article code { font-size: var(--fs-label); padding: 0 4px; }
-.article pre { margin: var(--s6) 0; padding: var(--s5); font-size: var(--fs-label); }
+.article pre { margin-block: var(--s6); padding: var(--s5); font-size: var(--fs-label); }
 .article pre code { font-size: inherit; }
 .article blockquote {
-  margin: var(--s6) 0; padding: var(--s1) 0 var(--s1) var(--s5);
+  margin-block: var(--s6); margin-inline: auto; padding: var(--s1) 0 var(--s1) var(--s5);
   border-left: 3px solid var(--accent-line); color: var(--ink-2);
+  hanging-punctuation: first;
 }
-.article blockquote p { margin: var(--s2) 0; }
-.article hr { margin: var(--s8) 0; }
-.article table { font-size: var(--fs-body); }
-.article .table-wrap { margin: var(--s6) 0; }
+.article blockquote p { margin-block: var(--s2); }
+.article table { font-size: var(--fs-body); font-family: var(--font); }
+.article .table-wrap { margin-block: var(--s6); }
+.article figure { margin-block: var(--s6); }
+.article figcaption { font-family: var(--font); }
+.article img { max-width: 100%; height: auto; }
+
+/* Book paragraphing (11b.1): the renderer picks ONE mode per document —
+   indents for prose-led pieces, spacing for list- and code-heavy ones.
+   Indents or spacing, never both. */
+.article--indent p { margin-block: 0; }
+.article--indent p + p { text-indent: 1.5em; }
+.article--indent p:last-child { margin-bottom: var(--s5); }
+
+/* Dinkus (11b.7): the markdown `---` as the rhythm register between
+   paragraph and section — a thought break, not a rule. */
+.article hr { border: 0; margin-block: var(--s8); text-align: center; }
+.article hr::before { content: "\\00B7 \\00B7 \\00B7"; letter-spacing: 0.8em;
+  margin-left: 0.8em; color: var(--muted); font-size: var(--fs-read); }
+
+/* Epigraph (11b.7): a blockquote that opens the document — italic, quiet,
+   borderless, with air. A second paragraph is read as the attribution. */
+.article > blockquote:first-child {
+  border-left: 0; padding: 0; margin-block: var(--s7) var(--s10);
+  font-style: italic; hanging-punctuation: first;
+}
+.article > blockquote:first-child > p:last-child:not(:only-child) {
+  font-style: normal; text-align: right; font-size: 0.85em;
+  font-family: var(--font); color: var(--muted);
+}
 
 /* A drop cap only where an article really opens with prose — never mid-page,
    and never on a page that starts with a heading or a list. */
@@ -983,9 +1233,32 @@ ARTICLE_CSS = """
   color: var(--accent); padding: 4px var(--s2) 0 0;
 }
 
+/* ---- Asides (11b.5): footnotes as margin notes --------------------------- */
+/* Block-level, placed right after the paragraph that references them; open by
+   default so the note reads without interaction. At reading width they float
+   into the right rail; below it they are an indented disclosure. */
+sup.fn-ref { font-family: var(--font); font-size: 0.72em; line-height: 0; }
+sup.fn-ref a, .src-ref a { color: var(--accent); text-decoration: none; font-weight: 600; }
+sup.src-ref { font-family: var(--font); font-size: 0.72em; line-height: 0; }
+.endnotes { font-family: var(--font); font-size: 0.85em; color: var(--ink-2); }
+details.aside { border: 0; font-family: var(--font); font-size: 0.82em;
+  line-height: 1.5; color: var(--ink-2); margin-block: var(--s3) var(--s5); }
+details.aside > summary { padding: 0 2px; font-weight: 600; color: var(--accent);
+  font-size: var(--fs-eyebrow); font-variant-numeric: tabular-nums; }
+details.aside > summary::before { content: none; }
+details.aside .body { padding: var(--s1) 2px var(--s2) var(--s4); }
+@media (min-width: 1210px) {
+  details.aside { float: right; clear: right; width: 230px;
+    margin: 0 0 var(--s4) var(--s5); }
+  details.aside .body { padding: var(--s1) 0 0; }
+  .article figure { position: relative; }
+  .article figcaption { position: absolute; left: 100%; top: 0; width: 230px;
+    margin-left: var(--s6); }
+}
+
 /* ---- Pull quote ---------------------------------------------------------- */
 .pull {
-  margin: var(--s8) 0; padding: 0; border: 0;
+  margin-block: var(--s8); padding: 0; border: 0;
   font-size: var(--fs-lede); line-height: 1.42; font-weight: 500;
   color: var(--ink); letter-spacing: -0.012em;
 }
@@ -996,21 +1269,36 @@ ARTICLE_CSS = """
 .pull cite { display: block; margin-top: var(--s3); font: inherit;
   font-size: var(--fs-meta); font-style: normal; color: var(--muted); }
 
-/* ---- Foot: where the text pointed --------------------------------------- */
+/* ---- Foot: end matter (11b.4 / 11b.7) ------------------------------------ */
 .article-foot {
   margin-top: var(--s9); padding-top: var(--s5); border-top: 1px solid var(--hairline);
-  font-size: var(--fs-meta); color: var(--muted);
+  font-family: var(--font); font-size: var(--fs-meta); color: var(--muted);
+  max-width: var(--measure-read); margin-left: auto; margin-right: auto;
 }
 .article-foot h2 {
-  font-size: var(--fs-eyebrow); font-weight: 600; letter-spacing: 0.07em;
+  font-size: var(--fs-eyebrow); font-weight: 600; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--muted); margin: 0 0 var(--s3);
 }
 .article-foot ol { margin: 0; padding-left: 22px; }
 .article-foot li { margin: 4px 0; word-break: break-word; }
+.article-foot .backref { color: var(--accent); text-decoration: none; margin-left: 5px; }
+/* The colophon: one line saying what this file is — the offline, single-file
+   promise stated as a fact, in the instrument voice. */
+.colophon { margin-top: var(--s6); color: var(--muted);
+  font: 400 11.5px var(--font-mono); letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums; }
 
+/* ---- Print (11b.8): a single file's natural second life is Cmd+P --------- */
+@page { margin: 2cm; }
 @media print {
   .article-head { padding-top: 0; }
-  .article { font-size: var(--fs-body); }
+  .article { font-size: var(--fs-body); widows: 3; orphans: 3; }
+  .article figure, .article .table-wrap, .article pre, .article blockquote {
+    break-inside: avoid;
+  }
+  .article > .full-bleed, .article > figure.full-bleed { max-width: 100%; }
+  details.aside { float: none; width: auto; margin: var(--s3) 0 var(--s5); }
+  .mini-toc { display: none; }
 }
 """
 
@@ -1079,8 +1367,17 @@ def delta(text: str, direction: str = "up") -> str:
     return f"<span class='delta {esc(direction)}'>{arrow} {esc(text)}</span>"
 
 
-def tile(label: str, value: str, sub: str = "", chip: str = "", icon: str = "", spark: str = "") -> str:
-    """Metric tile: label · value · optionally icon, badge/delta, sparkline, footnote."""
+def tile(label: str, value: str, sub: str = "", chip: str = "", icon: str = "",
+         spark: str = "", trend: str = "", capacity=None) -> str:
+    """Metric tile: label · value · optionally icon, badge/delta, sparkline,
+    footnote — plus two variants (design-manual.md, 6.1):
+
+    ``trend`` is one plain-language sentence of interpretation, written by the
+    generator ("Trending up this month") — the tile explains itself instead of
+    only measuring. ``capacity`` is ``(pct, caption)`` for a used-of-available
+    reading ("1.85 of 10 GB"): the caption above a thin meter. A delta pair in
+    ``chip`` (two ``delta()`` calls joined) makes the dual-delta variant.
+    """
     head = (
         "<div class='tile-head'>"
         + (f"<span class='icon-badge'>{_maybe_html(icon)}</span>" if icon else "")
@@ -1088,14 +1385,112 @@ def tile(label: str, value: str, sub: str = "", chip: str = "", icon: str = "", 
         + (chip or "")
         + "</div>"
     )
+    cap = ""
+    if capacity:
+        pct, caption = capacity
+        cap = (f"<div class='capacity'><div class='cap-note'>{esc(caption)}</div>"
+               f"<span class='meter'><i style='width:{max(0, min(100, pct)):.1f}%'></i>"
+               "</span></div>")
     return (
         "<div class='tile'>"
         + head
         + f"<div class='value'>{esc(value)}</div>"
         + (f"<div class='spark'>{spark}</div>" if spark else "")
+        + cap
         + (f"<div class='sub'>{esc(sub)}</div>" if sub else "")
+        + (f"<div class='trend'>{esc(trend)}</div>" if trend else "")
         + "</div>"
     )
+
+
+def tile_group(stats, label: str = "") -> str:
+    """Grouped-triplet tile (6.1): up to three stats that only mean something
+    together, in ONE tile — hairlines between them, no second box level.
+
+    ``stats`` is a sequence of ``(label, value)`` or ``(label, value, sub)``.
+    """
+    cells = []
+    for stat in stats:
+        name, value, sub = (stat + ("",))[:3] if len(stat) < 3 else stat[:3]
+        cells.append(f"<div><div class='label'>{esc(name)}</div>"
+                     f"<div class='value'>{esc(value)}</div>"
+                     + (f"<div class='sub'>{esc(sub)}</div>" if sub else "")
+                     + "</div>")
+    head = f"<div class='tile-head'><div class='label'>{esc(label)}</div></div>" if label else ""
+    return f"<div class='tile'>{head}<div class='tile-trio'>{''.join(cells)}</div></div>"
+
+
+def metric_hero(metrics, chart: str, active: int = 0, sub: str = "",
+                foot_left: str = "", foot_right: str = "") -> str:
+    """Metric-tab hero (design-manual.md, 5.2b): one hero chart card whose
+    header row IS the KPI strip — one metric marked active and plotted below.
+
+    ``metrics``: sequence of ``(label, value)`` or ``(label, value, sub)``;
+    ``chart`` is the finished chart markup for the active metric. Static by
+    design — the underline says what is plotted, nothing switches.
+    """
+    tabs = []
+    for i, m in enumerate(metrics):
+        name, value, note = (tuple(m) + ("",))[:3]
+        cls = " is-active" if i == active else ""
+        tabs.append(f"<div class='mt{cls}'><div class='label'>{esc(name)}</div>"
+                    f"<div class='value'>{esc(value)}</div>"
+                    + (f"<div class='sub'>{esc(note)}</div>" if note else "")
+                    + "</div>")
+    body = f"<div class='metric-tabs'>{''.join(tabs)}</div>{chart}"
+    return card(body, sub=sub, foot_left=foot_left, foot_right=foot_right)
+
+
+def bar_list(rows, unit: str = "", fmt=None) -> str:
+    """Ranked bar-list breakdown (design-manual.md, 6.27): each row carries a
+    proportional accent-tinted bar behind label and right-aligned value, so
+    magnitude is visible before a single number is read.
+
+    ``rows``: sequence of ``(label, value)`` or ``(label, value, sub)`` with
+    numeric values, largest-first by convention (the helper does not sort —
+    order is the author's statement). ``fmt`` formats the shown value
+    (default ``fmt_num``); ``unit`` is appended to it. Bars never drop below
+    2 % so every row stays visibly a bar.
+    """
+    rows = list(rows)
+    if not rows:
+        return ""
+    top = max(float(r[1]) for r in rows) or 1.0
+    fmt = fmt or (lambda v: fmt_num(v, 0))
+    out = []
+    for r in rows:
+        label, value, sub = (tuple(r) + ("",))[:3]
+        width = max(2.0, float(value) / top * 100)
+        shown = f"{fmt(value)}{(' ' + unit) if unit else ''}"
+        s = f"<span class='sub'>{esc(sub)}</span>" if sub else ""
+        out.append(f"<div class='bar-row'>"
+                   f"<span class='fill' style='width:{width:.1f}%'></span>"
+                   f"<span class='name'>{esc(label)}{s}</span>"
+                   f"<span class='value'>{esc(shown)}</span></div>")
+    return f"<div class='bar-list'>{''.join(out)}</div>"
+
+
+def tracker(slices, left: str = "", right: str = "") -> str:
+    """Tracker strip (design-manual.md, 6.28): status over time as one row of
+    contiguous blocks — anomalies pop as color breaks.
+
+    ``slices``: sequence of states (``good`` · ``warn`` · ``crit`` · ``''``
+    for nothing-to-say) or ``(state, title)`` pairs — the title names the
+    slice for hover and assistive tech. 60–90 slices read best; status colors
+    only, neutral slices stay hairline gray. ``left``/``right`` label the
+    strip's time span underneath.
+    """
+    blocks = []
+    for s in slices:
+        state, title = (s, "") if isinstance(s, str) else (tuple(s) + ("",))[:2]
+        cls = f" class='t-{esc(state)}'" if state else ""
+        t = f" title='{esc(title)}'" if title else ""
+        blocks.append(f"<span{cls}{t}></span>")
+    meta = ""
+    if left or right:
+        meta = (f"<div class='tracker-meta'><span>{esc(left)}</span>"
+                f"<span>{esc(right)}</span></div>")
+    return f"<div class='tracker'>{''.join(blocks)}</div>{meta}"
 
 
 # Inline SVG icons: monochrome, `currentColor`, no icon font, no external set (6.13).
@@ -1110,6 +1505,14 @@ _ICONS = {
     "lock": '<rect x="3.4" y="7" width="9.2" height="6.2" rx="1.4"/><path d="M5.8 7V5.5a2.2 2.2 0 0 1 4.4 0V7"/>',
     "clock": '<circle cx="8" cy="8" r="5.5"/><path d="M8 4.9V8l2.2 1.5"/>',
     "flag": '<path d="M4 13.4V3.1"/><path d="M4 3.6h6.8l-1.3 2.3 1.3 2.3H4"/>',
+    # Kind glyphs — the index page's entire heterogeneity signal (per kind).
+    "chart": '<path d="M3 13.2h10.4"/><path d="M4.6 10.6l2.6-2.9 2.2 1.7 3-3.8"/>',
+    "list": '<rect x="2.8" y="2.8" width="4" height="4" rx="1"/><path d="M4 4.8l.9.9 1.5-1.8"/>'
+            '<path d="M9 4.8h4.2"/><rect x="2.8" y="9.2" width="4" height="4" rx="1"/>'
+            '<path d="M9 11.2h4.2"/>',
+    "question": '<path d="M13.4 9.1c0 .7-.6 1.3-1.3 1.3H6.2l-3 2.4V4.2c0-.7.6-1.3 1.3-1.3'
+                'h7.6c.7 0 1.3.6 1.3 1.3z"/><path d="M6.6 5.9c.2-.7.8-1.1 1.5-1.1.9 0 '
+                '1.5.5 1.5 1.2 0 1-1.4 1.1-1.4 2"/><path d="M8.2 9.6v.1"/>',
 }
 
 
@@ -1133,34 +1536,46 @@ def eyebrow(text: str, num: str = "") -> str:
     return f"<div class='eyebrow'>{n}{esc(text)}</div>"
 
 
-def section_head(title: str, sub: str = "", num: str = "", kicker: str = "", right: str = "") -> str:
-    """Section head (level 2): overline with number · large title · subline · meta on the right."""
+def section_head(title: str, sub: str = "", num: str = "", kicker: str = "",
+                 right: str = "", count=None) -> str:
+    """Section head (level 2): overline with number · large title · subline ·
+    meta on the right. ``count`` puts a muted count chip right after the title
+    ("Backlog 8") — magnitude before content (6.0); it never replaces the
+    ``right`` slot, which stays for status."""
     top = eyebrow(kicker, num) if (kicker or num) else ""
+    c = f"<span class='tag'>{esc(count)}</span>" if count is not None else ""
     s = f"<p class='sub'>{esc(sub)}</p>" if sub else ""
     r = f"<span class='spacer'></span>{right}" if right else ""
     return (
-        f"<div class='section-head'><div>{top}<h2>{esc(title)}</h2>{s}</div>{r}</div>"
+        f"<div class='section-head'><div>{top}<h2>{esc(title)}{c}</h2>{s}</div>{r}</div>"
     )
 
 
-def subhead(title: str, sub: str = "", right: str = "") -> str:
-    """Group title inside a card (level 3)."""
+def subhead(title: str, sub: str = "", right: str = "", num: str = "") -> str:
+    """Group title inside a card (level 3). ``num`` prefixes a decimal
+    sub-number ("02.1") in the meta voice — citable card headings inside a
+    numbered section (5.4)."""
+    n = f"<span class='sub num'>{esc(num)}</span>" if num else ""
     s = f"<span class='sub'>{esc(sub)}</span>" if sub else ""
     r = f"<span class='spacer'></span>{right}" if right else ""
-    return f"<div class='subhead'>{esc(title)}{s}{r}</div>"
+    return f"<div class='subhead'>{n}{esc(title)}{s}{r}</div>"
 
 
 def card(body: str, title: str = "", sub: str = "", right: str = "",
-         foot_left: str = "", foot_right: str = "", pad: bool = False) -> str:
+         foot_left: str = "", foot_right: str = "", pad: bool = False,
+         icon: str = "") -> str:
     """Card shell (design-manual.md, 5 / 6.18): head · context line · body · footer.
 
     The footer is mandatory as soon as the card shows computed values (5).
-    `right` and `body` take finished markup; everything else is escaped.
+    `right`, `icon` and `body` take finished markup; everything else is
+    escaped. ``icon`` puts a small soft-accent tile before the title (the
+    index cards' kind glyph).
     """
     head = ""
-    if title or right:
+    if title or right or icon:
+        i = f"<span class='icon-badge'>{_maybe_html(icon)}</span>" if icon else ""
         r = f"<span class='spacer'></span>{right}" if right else ""
-        head = f"<div class='card-head'><h3 class='card-title'>{esc(title)}</h3>{r}</div>"
+        head = f"<div class='card-head'>{i}<h3 class='card-title'>{esc(title)}</h3>{r}</div>"
     s = f"<p class='card-sub'>{esc(sub)}</p>" if sub else ""
     foot = ""
     if foot_left or foot_right:
@@ -1195,19 +1610,23 @@ def focus_card(value: str, label: str, sub: str = "", kind: str = "", chip: str 
 
 
 def accordion(title: str, body: str, sub: str = "", mark: str = "", meta: str = "",
-              right: str = "", tag: str = "", open_: bool = False) -> str:
+              right: str = "", tag: str = "", open_: bool = False,
+              tags: str = "") -> str:
     """Collapsible entry row: mark · title (+ tag) · subline · meta on the right.
 
     `tag` renders inline after the title — finished chip markup (e.g. `badge()`)
-    passes through, plain text becomes a `.tag` chip.
+    passes through, plain text becomes a `.tag` chip. `tags` (space-separated
+    lowercase tokens) makes the row addressable by a `filter_row()` above the
+    list (6.5); rows without it are never hidden by a filter.
     """
     m = f"<span class='acc-mark'>{_maybe_html(mark)}</span>" if mark else ""
     s = f"<span class='acc-sub'>{esc(sub)}</span>" if sub else ""
     t = ((tag if tag.lstrip().startswith("<") else f"<span class='tag'>{esc(tag)}</span>")
          if tag else "")
     meta_html = f"<span class='meta'>{esc(meta)}</span>" if meta else ""
+    dt = f" data-tags='{esc(tags)}'" if tags else ""
     return (
-        f"<details class='acc'{' open' if open_ else ''}><summary>{m}"
+        f"<details class='acc'{' open' if open_ else ''}{dt}><summary>{m}"
         f"<span class='acc-text'><span class='acc-title'>{esc(title)}{t}</span>{s}</span>"
         f"{right}{meta_html}</summary>"
         f"<div class='body'><div class='prose'>{body}</div></div></details>"
@@ -1298,16 +1717,59 @@ def legend(labels, start: int = 1) -> str:
     return f"<div class='legend'>{items}</div>"
 
 
-def list_row(main: str, value: str = "", sub: str = "") -> str:
+def list_row(main: str, value: str = "", sub: str = "", tags: str = "") -> str:
     """One 'text left, value right' row (design-manual.md, 6.6).
 
     `value` passes finished markup (badge, delta) through unchanged; plain
-    strings — and always `main` and `sub` — are escaped.
+    strings — and always `main` and `sub` — are escaped. `tags`
+    (space-separated lowercase tokens) makes the row addressable by a
+    `filter_row()` above the list (6.5).
     """
     s = f"<span class='sub'>{esc(sub)}</span>" if sub else ""
     v = f"<span class='value'>{_maybe_html(value)}</span>" if value else ""
-    return (f"<div class='list-row'><span><span class='main'>{esc(main)}</span>{s}</span>"
+    dt = f" data-tags='{esc(tags)}'" if tags else ""
+    return (f"<div class='list-row'{dt}><span><span class='main'>{esc(main)}</span>{s}</span>"
             f"{v}</div>")
+
+
+def filter_row(options, scope: str, label: str = "") -> str:
+    """Filter pills above a list (design-manual.md, 6.5) — one row, single-select.
+
+    `options` is a sequence of ``(token, label)`` pairs; an "all" pill is
+    prepended automatically and starts active. `scope` is a CSS selector for
+    the container whose ``data-tags`` children the pills filter (rows opt in
+    via the `tags` parameter of `accordion()` / `list_row()`). The behavior
+    is FILTER_JS's job — without scripting every pill is inert and the full
+    list stays visible, so a filter is always an enhancement, never the only
+    way to reach content. The empty note is in the document (a hidden
+    `.empty`), not assembled at view time.
+    """
+    pills = (f"<button type='button' class='chip is-active' data-filter='' "
+             f"aria-pressed='true'>{esc(STRINGS['filter_all'])}</button>")
+    for token, text in options:
+        pills += (f"<button type='button' class='chip' data-filter='{esc(token)}' "
+                  f"aria-pressed='false'>{esc(text)}</button>")
+    return (f"<div class='filters' role='group' aria-label='{esc(label or STRINGS['filter_aria'])}' "
+            f"data-filter-scope='{esc(scope)}'>{pills}"
+            f"<span class='empty' hidden>{esc(STRINGS['filter_empty'])}</span></div>")
+
+
+def show_all(rows, limit: int = 8) -> str:
+    """Truncate a long list behind a show-all trigger (design-manual.md, 6.6).
+
+    `rows` is a sequence of finished row markup (`list_row()`, `accordion()`
+    — not table rows: a long table is authored top-N instead). At `limit`
+    rows or fewer this is a plain join with no wrapper. Beyond it, the rows
+    land in a ``data-show-all`` container whose trailing trigger SHOWALL_JS
+    reveals; without scripting the trigger stays hidden and every row is
+    visible, and printing always shows the full list.
+    """
+    rows = list(rows)
+    if len(rows) <= limit:
+        return "".join(rows)
+    trigger = (f"<button type='button' class='btn-link show-all' hidden>"
+               f"{esc(STRINGS['show_all'].format(n=len(rows)))}</button>")
+    return f"<div data-show-all='{limit}'>{''.join(rows)}{trigger}</div>"
 
 
 def meter_row(name: str, pct: float, kind: str = "") -> str:
@@ -1585,6 +2047,58 @@ MODAL_JS = r"""
 })();
 """
 
+FILTER_JS = r"""
+/* Filter pills (6.5): single-select visibility filter over data-tags rows.
+   View-only — no state is stored, and without this script every pill is
+   inert while the full list stays visible. */
+(function () {
+  [].slice.call(document.querySelectorAll('.filters[data-filter-scope]')).forEach(function (bar) {
+    var scope = document.querySelector(bar.getAttribute('data-filter-scope'));
+    if (!scope) return;
+    var pills = [].slice.call(bar.querySelectorAll('button[data-filter]'));
+    var note = bar.querySelector('.empty');
+    function apply(token) {
+      var visible = 0;
+      [].slice.call(scope.querySelectorAll('[data-tags]')).forEach(function (el) {
+        var show = !token ||
+          (' ' + el.getAttribute('data-tags') + ' ').indexOf(' ' + token + ' ') >= 0;
+        el.classList.toggle('is-filtered-out', !show);
+        if (show) visible += 1;
+      });
+      if (note) note.hidden = visible > 0;
+    }
+    pills.forEach(function (p) {
+      p.addEventListener('click', function () {
+        pills.forEach(function (q) {
+          q.classList.toggle('is-active', q === p);
+          q.setAttribute('aria-pressed', q === p ? 'true' : 'false');
+        });
+        apply(p.getAttribute('data-filter'));
+      });
+    });
+  });
+})();
+"""
+
+SHOWALL_JS = r"""
+/* Show-all (6.6): truncate a long list, one click reveals the rest.
+   Without this script the trigger stays hidden and every row is visible. */
+(function () {
+  [].slice.call(document.querySelectorAll('[data-show-all]')).forEach(function (box) {
+    var limit = parseInt(box.getAttribute('data-show-all'), 10) || 8;
+    var btn = box.querySelector('.show-all');
+    var rows = [].slice.call(box.children).filter(function (el) { return el !== btn; });
+    if (rows.length <= limit || !btn) return;
+    rows.slice(limit).forEach(function (el) { el.classList.add('is-truncated'); });
+    btn.hidden = false;
+    btn.addEventListener('click', function () {
+      rows.forEach(function (el) { el.classList.remove('is-truncated'); });
+      btn.hidden = true;
+    });
+  });
+})();
+"""
+
 
 # ------------------------------------------- input and app chrome (6b) -------
 # Components for interactive pages (design-manual.md, 11). They need FORM_CSS
@@ -1682,7 +2196,7 @@ def toast(text: str = "") -> str:
 
 def check_row(rid: str, text: str, state: str = "open", context: str = "",
               detail: str = "", note: str = "", note_label: str = "",
-              note_open: str = "") -> str:
+              note_open: str = "", actions: str = "") -> str:
     """One instruction from a maintained document (design-manual.md, 6.26).
 
     ``rid`` is the row's stable, id-safe identifier — a content fingerprint,
@@ -1690,15 +2204,21 @@ def check_row(rid: str, text: str, state: str = "open", context: str = "",
     hand-back, and it is what lets the row survive the document being edited
     around it.
 
-    ``state``: ``open`` · ``done`` · ``obsolete``. ``obsolete`` is a statement
-    the *document* makes, so its tick is disabled and the state is spelled out
-    in a tag — strikethrough alone would be a purely visual signal (2.3).
+    ``state``: ``open`` · ``done`` · ``obsolete`` · ``na`` · ``deferred``.
+    ``obsolete`` is a statement the *document* makes, so its tick is disabled
+    and the state is spelled out in a tag — strikethrough alone would be a
+    purely visual signal (2.3). ``na`` ("does not apply") and ``deferred``
+    ("I'll come back to it later") are statements the *person* makes — n/a is
+    an affirmative answer, not a blank. Attention is inverted (GOV.UK): the
+    states still asking for work carry the tag; done and n/a rows sit quiet.
 
     ``text``, ``context`` and ``detail`` take finished markup (the caller
     renders the source's markdown); labels and values are escaped. The note
     disclosure is present on every row whatever its state (6.21) — a note on a
     row left open is a person saying "did it, but not the way this says", and
     gating that on the tick would lose exactly the interesting case.
+    ``actions`` is finished markup for the page's own per-row controls
+    (e.g. the n/a and later toggles), placed beside the note opener.
     """
     done = state == "done"
     obsolete = state == "obsolete"
@@ -1707,10 +2227,14 @@ def check_row(rid: str, text: str, state: str = "open", context: str = "",
             f" aria-pressed='{'true' if done else 'false'}'"
             f" aria-labelledby='{tid}'{' disabled' if obsolete else ''}>"
             f"{icon('check', 15)}</button>")
-    mark = (f"<span class='tag'>{esc(STRINGS['check_obsolete'])}</span>"
-            if obsolete else "")
-    ctx = (f"<div class='ck-context'>{context}{mark}</div>"
-           if (context or mark) else "")
+    tags = {"obsolete": "check_obsolete", "na": "check_na", "deferred": "check_deferred"}
+    word = STRINGS[tags[state]] if state in tags else ""
+    # Always in the document, hidden when the row sits quiet: the page script
+    # only ever toggles it, never invents its text (11.2). The state words it
+    # may need ride as attributes.
+    mark = (f"<span class='tag ck-state'{'' if word else ' hidden'}>"
+            f"{esc(word)}</span>")
+    ctx = f"<div class='ck-context'>{context}</div>" if context else ""
     body = f"<div class='ck-detail prose'>{detail}</div>" if detail else ""
     opener = (f"<button type='button' class='btn btn--ghost note-open'"
               f" data-note-open='{esc(rid)}' aria-expanded='false'"
@@ -1722,9 +2246,11 @@ def check_row(rid: str, text: str, state: str = "open", context: str = "",
                            value=note, rows=2)
               + "</div>")
     return (f"<div class='ck-row' data-check-row='{esc(rid)}'"
-            f" data-state='{esc(state)}'>{tick}"
+            f" data-state='{esc(state)}'"
+            f" data-word-na='{esc(STRINGS['check_na'])}'"
+            f" data-word-deferred='{esc(STRINGS['check_deferred'])}'>{tick}"
             f"<div class='ck-body'><span class='ck-text' id='{tid}'>{text}</span>"
-            f"{ctx}{body}{opener}</div></div>")
+            f"{ctx}{body}{actions}{opener}</div>{mark}</div>")
 
 
 def summary_row(num: str, question: str, answer: str = "", note: str = "",
@@ -1777,18 +2303,57 @@ def pull_quote(text: str, cite: str = "") -> str:
     return f"<blockquote class='pull'>{body}</blockquote>"
 
 
-def source_list(items, title: str = "Sources") -> str:
-    """The numbered destinations an article's links pointed at.
+def source_list(items, title: str = "Sources", linked: bool = False,
+                colophon_line: str = "") -> str:
+    """The numbered destinations an article's links pointed at, and the
+    document's designed end matter (11b.4 / 11b.7).
 
-    A self-contained page carries no anchors (design-manual.md, 1.4), so a
-    link becomes its label plus a number, and the number is resolved here.
-    Entries are plain text on purpose — nothing on the page is fetchable.
+    A self-contained page carries no external anchors (design-manual.md, 1.4),
+    so a link becomes its label plus a number, and the number is resolved
+    here. Entries are plain text on purpose — nothing on the page is
+    fetchable. ``linked=True`` gives each entry an ``id`` (``src-n``) and a
+    ``↩`` backlink to its first in-text reference (``ref-n``) — internal
+    anchors the page can honour. ``colophon_line`` closes the document with
+    one line in the instrument voice ("rendered 2026-08-18 · 4,120 words ·
+    single file, works offline").
     """
-    rows = "".join(f"<li>{_maybe_html(str(i))}</li>" for i in items if i)
+    rows = []
+    for n, item in enumerate((str(i) for i in items if i), start=1):
+        if linked:
+            rows.append(f"<li id='src-{n}'>{_maybe_html(item)}"
+                        f"<a class='backref' href='#ref-{n}' aria-label='back to "
+                        f"reference {n}'>↩</a></li>")
+        else:
+            rows.append(f"<li>{_maybe_html(item)}</li>")
+    tail = f"<p class='colophon'>{esc(colophon_line)}</p>" if colophon_line else ""
+    if not rows and not tail:
+        return ""
+    body = f"<h2>{esc(title)}</h2><ol>{''.join(rows)}</ol>" if rows else ""
+    return f"<footer class='article-foot'>{body}{tail}</footer>"
+
+
+def aside_note(num: int, body: str) -> str:
+    """One margin aside (11b.5): a markdown footnote as a block placed right
+    after the paragraph that references it. Open by default so the note reads
+    without interaction; at reading width the CSS floats it into the right
+    rail. The in-text anchor is ``sup.fn-ref`` with ``id='fn-ref-{num}'``."""
+    return (f"<details class='aside' id='fn-{num}' open>"
+            f"<summary>{int(num)}</summary>"
+            f"<div class='body'>{body}</div></details>")
+
+
+def mini_toc(entries, label: str = "") -> str:
+    """The no-JS table of contents (11b.7): a ``<details open>`` after the
+    masthead for documents with four or more sections. ``entries`` is a
+    sequence of ``(anchor, text)`` — anchors are internal, which a
+    self-contained page can honour."""
+    rows = "".join(f"<li><a href='#{esc(anchor)}'>{esc(text)}</a></li>"
+                   for anchor, text in entries)
     if not rows:
         return ""
-    return (f"<footer class='article-foot'><h2>{esc(title)}</h2>"
-            f"<ol>{rows}</ol></footer>")
+    return (f"<details class='mini-toc' open><summary>"
+            f"{esc(label or STRINGS['toc_contents'])}</summary>"
+            f"<ol>{rows}</ol></details>")
 
 
 # ------------------------------------------------------------- js kits -------

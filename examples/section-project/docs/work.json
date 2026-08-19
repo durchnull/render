@@ -1,0 +1,28 @@
+{
+  "updated": "2026-08-19",
+  "milestone": "1.0.0",
+  "items": [
+    {"title": "Freeze the public surface and document which names are internal",
+     "area": "api", "state": "in progress", "note": "everything under meridian._* becomes private"},
+    {"title": "Add the explicit dayfirst argument to parse()",
+     "area": "api", "state": "in progress", "note": "the last planned breaking change"},
+    {"title": "Write the deprecation policy into the README",
+     "area": "docs", "state": "in progress", "note": "two minor releases of warning, no exceptions"},
+    {"title": "Round-trip week dates through isoformat() on 3.10",
+     "area": "parser", "state": "blocked", "note": "stdlib disagrees about the ISO year boundary"},
+    {"title": "Reject trailing garbage instead of parsing the prefix",
+     "area": "parser", "state": "ready", "note": "'2026-03-04xyz' currently parses"},
+    {"title": "Table-drive the relative-date tests",
+     "area": "tests", "state": "ready", "note": "one case per phrase, 60 cases collapse to a table"},
+    {"title": "Property test: parse(format(d)) == d for every supported format",
+     "area": "tests", "state": "ready"},
+    {"title": "Fail the build on a coverage drop, not on an absolute floor",
+     "area": "tests", "state": "ready", "note": "the floor rewards deleting tests"},
+    {"title": "Ship type stubs in the wheel and mark the package typed",
+     "area": "packaging", "state": "ready", "note": "py.typed marker"},
+    {"title": "Build wheels for 3.14 in CI",
+     "area": "packaging", "state": "ready"},
+    {"title": "Document the grammar the parser accepts, phrase by phrase",
+     "area": "docs", "state": "ready", "note": "the most-asked question in issues"}
+  ]
+}

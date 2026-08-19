@@ -15,9 +15,9 @@ imports `design_system` or `render` directly will break; one that imports
 
 | Tier | Names |
 |---|---|
-| design system | `TOKENS`, `BASE_CSS`, `card`, `tile`, `list_row`, `badge`, `timeline`, … |
+| design system | `TOKENS`, `BASE_CSS`, `card`, `tile`, `tile_group`, `list_row`, `badge`, `timeline`, `filter_row`, `show_all`, `bar_list`, `tracker`, `metric_hero`, `FILTER_JS`, `SHOWALL_JS`, … |
 | interactive | `FORM_CSS`, `APP_CSS`, `option_row`, `field`, `progress_bar`, `action_bar`, `toast`, `summary_row`, `STATE_JS`, `HANDBACK_JS`, … |
-| long-form | `ARTICLE_CSS`, `article_head`, `pull_quote`, `source_list` |
+| long-form | `ARTICLE_CSS`, `article_head`, `pull_quote`, `source_list`, `aside_note`, `mini_toc` |
 | content core | `md_to_html`, `parse_frontmatter`, … |
 
 ## What it adds
@@ -26,9 +26,14 @@ imports `design_system` or `render` directly will break; one that imports
   design system's standard shell.
 - `check_page(html) -> list[str]` — the same deterministic checks as
   `render.py --check`: self-containment (including "no `https://` in the
-  markup"), hex colors only from the token blocks, and no unresolved
-  placeholders. A standalone renderer calls it to verify itself before it
-  writes.
+  markup"), hex colors only from the token blocks, no unresolved
+  placeholders, and the mechanical half of design-manual.md 5.1 (no card
+  with an empty body, no prose in a table cell). A standalone renderer
+  calls it to verify itself before it writes.
+
+A standalone page that uses `filter_row()` or `show_all()` appends the
+matching script itself — the engine's shell does it only for declared
+pages: `tail=f"<script>{FILTER_JS}{SHOWALL_JS}</script>"`.
 
 ## Finding the engine
 

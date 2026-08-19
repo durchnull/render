@@ -1,6 +1,6 @@
 # The hand-back block
 
-**Grammar version 2.** How a generated page talks back to the agent that made it.
+**Grammar version 3.** How a generated page talks back to the agent that made it.
 
 A rendered page is offline and self-contained: it cannot post anywhere, and that
 is the point. So when a page has collected something — answers, a checklist run,
@@ -71,8 +71,9 @@ status: <n> of <m> answered · <u> unclear · <s> skipped
 | Multiple `→` lines mean multiple choices | Multi-select needs no separate syntax. |
 | `→ <text>` with no parentheses for typed answers | Free text and amounts. **Handed back exactly as typed**, with the unit appended — no rounding, no locale interpretation. That is the reader's job. |
 | `note:` lines are indented three spaces | Belongs to the item above; survives on skipped and don't-know items. |
-| `→ ? don't know — please follow up` is a **distinct state** | Not a blank. It marks something to come back to, which is different from an unanswered question and different from a deliberate skip. |
+| `→ ? don't know — please follow up` is a **distinct state** | Not a blank. It marks something to come back to, which is different from an unanswered question and different from a deliberate skip. The consumer is an agent: an honest "don't know" is actionable data, and merging the two opt-outs would fog it. |
 | Items never shown are simply absent | A conditional question that never became relevant is not reported as unanswered. |
+| A conditional page's `status:` line ends `· <k> not asked` (v3) | The count is what lets the agent tell "absent because the branch closed" from "absent because the paste is truncated" without re-deriving the conditions. |
 
 ## Shape 2 — changes
 
@@ -114,7 +115,8 @@ status: 12 of 31 done · 3 changed here
 | An item appears in the changes section if it has **at least one** change line | A note with no state change is itself reportable, and is how a person says "did it, but not the way this says". An item nobody touched is absent, because absence is the accurate report. |
 | `[<id>]` is a **content fingerprint**, not a position | The source document is edited while people have the page open. A positional id would be wrong the moment a line moved; a content-derived one still points at the same sentence. |
 | `## Full state (control)` is a **reserved heading**, and what follows it is not a change | It is control material: it lets the agent verify it understood the diff before writing anything. Every item the page knows appears there, in document order, whether it moved or not. |
-| Full-state lines carry a state glyph — `☑` done · `☐` open · `~~…~~` obsolete | Self-describing line by line, so the listing is still readable if it is quoted out of context. |
+| Full-state lines carry a state glyph — `☑` done · `☐` open · `~~…~~` obsolete · `n/a <text>` · `☐ <text> (later)` (v3) | Self-describing line by line, so the listing is still readable if it is quoted out of context. |
+| `~` may target `na` and `deferred` (v3) | The person's own statements: "does not apply" (an affirmative answer — counts as done in the `status:` ratio) and "I'll come back to it later" (still open work). The document's checkbox syntax cannot hold either, so `--source` routes them under `judgment:` — where the change is placed is the agent's editorial call, never a mechanical edit. |
 | `based-on:` is the **drift check** | If it does not match the current file, the file moved while the page was open. Re-render and ask — never force the diff onto a document that changed underneath it. |
 | `obsolete` never appears as a `~` target | Striking an item is an editorial judgement about the task list, not a record of progress. It changes what the document *says*, so it belongs to the agent applying the diff, where it gets a review step. |
 
@@ -168,3 +170,9 @@ gets a new marker default, not a silent redefinition.
 
 Version 2 **added** the changes shape and left the answers shape untouched: a
 version 1 parser reads a version 1 block exactly as before.
+
+Version 3 **added**, in the changes shape, the two person-states (`na`,
+`deferred`) as `~` targets and their full-state spellings, and, in the
+answers shape, the optional `· <k> not asked` tail on the `status:` line.
+Everything a version 2 parser understood still means the same thing; the new
+lines land in its `ignored`/`judgment` buckets rather than breaking it.

@@ -26,11 +26,19 @@ Structure: overline `NN · KICKER` (number in a 23 px accent mark) · H2 (E2) ·
 subline (max. 64 characters wide) · counter or status on the right · hairline below.
 The number is **mandatory** — it is level 2's recurring cue.
 
+`count=8` puts a muted count chip directly after the title ("Backlog 8") —
+magnitude before content (Linear). It never replaces the `right` slot, which
+stays for status; a count is not a status.
+
 ### 6.0b Group title `.subhead` — `subhead()`
 
 Level 3 inside a card: 3 px accent bar, title (E3), optional gray addition
 ("8 folders without a receipt"). Separates groups within a card **without** opening a
 second box level. Markdown passages produce the same look automatically via `.prose > h3`.
+
+`num="02.1"` prefixes a decimal sub-number in the meta voice — citable card
+headings inside a numbered section (design-manual.md 5.4). Two levels, never
+three.
 
 ### 6.0c Focus card `.focus` — `focus_card()`
 
@@ -52,7 +60,7 @@ focus_card("5", "Days until the filing deadline",
 - The bar is the only permitted exception to "hierarchy not through borders"
   (1.4): it is a status indicator, not decoration.
 
-### 6.1 KPI tile `.tile` — `tile()`
+### 6.1 KPI tile `.tile` — `tile()`, `tile_group()`
 
 Contract: `label` (a declarative phrase, no colon) · `value` (large, semibold) · optional
 `icon` (tile on the left), `chip` (badge/delta on the right), `spark` (sparkline), `sub` (footnote).
@@ -65,6 +73,24 @@ tile("Days until the filing deadline", "5", sub="Deadline 31.07.2026 — binding
 Rules: one number per tile; the footnote explains the reference or source; a delta
 always names the comparison period. Compound labels get a non-breaking
 hyphen (U+2011, e.g. "To‑dos") so the tile does not wrap mid-word.
+
+**Four variants** (Tremor/shadcn direction — interpretation, not just
+measurement):
+
+- **Trend line** — `trend="Trending up this month"`: one plain-language
+  sentence of interpretation in the tile footer, written by the generator at
+  render time. It says what the number *means*; the `sub` still says where it
+  came from. Never invented — only written where the data supports it.
+- **Capacity** — `capacity=(18.5, "1.85 of 10 GB")`: a used-of-available
+  reading with the caption over a thin 6.7 meter.
+- **Dual delta** — two `delta()` calls joined in `chip` ("↑ 1.1 T€ ↑ 9,1 %"):
+  the absolute and the relative change together, when one alone misleads.
+- **Grouped triplet** — `tile_group([(label, value, sub), …])`: up to three
+  stats that only mean something together, in ONE tile with hairlines between
+  them — no second box level, and no pretending three dependent numbers are
+  three independent tiles. Laid out on a **two-column** grid: the third stat
+  wraps to a second row (2×2), because a tile's own width never fits three
+  columns of label-plus-value.
 
 ### 6.2 Delta and badge — `delta()`, `badge()`
 
@@ -106,23 +132,52 @@ In generated reports buttons are rare — only where something actually happens
 (e.g. the event title that opens its detail dialog): looks like a link, but is a
 `<button>` — correct for the keyboard and for screen readers, because there is no destination.
 
-### 6.5 Tabs / filter row
+### 6.5 Tabs / filter row — `filter_row()`, `FILTER_JS`
 
 `.tabs` with a 2 px underline beneath the active entry (Untitled reference), filters in
 **one** row above the content (`.filters`), never beside or below the chart.
 
-### 6.6 List row `.list-row` — `list_row()`
+`filter_row()` renders the filter pills; `FILTER_JS` (standard chrome on every
+section page, next to the jump-bar and modal scripts) makes them work:
+
+```python
+filter_row([("track-2", "Track 2"), ("track-5", "Track 5")], "#postings")
+```
+
+The contract: `scope` is a CSS selector; inside that container, every element
+carrying `data-tags` (rows opt in via the `tags` parameter of `list_row()` /
+`accordion()` — space-separated lowercase tokens) is shown or hidden per pill.
+An "all" pill is prepended automatically and starts active; selection is
+single-select and view-only — **no state is stored, and a filter is never the
+only way to reach content**: without scripting every pill is inert and the
+full list stays visible. Elements without `data-tags` (subheads, banners) are
+never hidden. The "nothing matches" note is in the document (a hidden
+`.empty`, string `filter_empty`), not assembled at view time. Printing shows
+the full list regardless of the active pill. Do not combine with
+`show_all()` on the same list — filtering a half-truncated list reads as
+missing data; pick one per list.
+
+### 6.6 List row `.list-row` — `list_row()`, `show_all()`, `SHOWALL_JS`
 
 Main text plus gray secondary text on the left, the value with `tabular-nums` on the right
 (Stripe reference "Top customers by spend"). Separated by hairlines, none after the last row.
-From eight rows on: truncate and link "show all".
+From eight rows on: truncate and link "show all" — `show_all()` is that mechanism:
 
 ```python
 list_row("Working tree", badge("clean", "good", icon="✓"), sub="measured via git status")
+show_all([list_row(p["name"], p["tier"]) for p in portals], limit=8)
 ```
 
 `value` passes finished markup (a badge or delta) through unchanged; everything else —
 including `main` and `sub` — is escaped. No renderer writes `.list-row` markup by hand.
+
+`show_all()` takes finished rows (`list_row()`, `accordion()` — not `<tr>`:
+a long table is authored top-N with a total row instead). At the limit or
+below it is a plain join with no wrapper; beyond it the rows land in a
+`data-show-all` container whose trailing trigger ("show all {n}", string
+`show_all`) `SHOWALL_JS` reveals. Without scripting the trigger stays hidden
+and every row is visible; printing always shows the full list. The reveal is
+one-way — a reader who asked for everything keeps everything.
 
 ### 6.7 Meter `.meter` — `meter_row()`
 
@@ -138,10 +193,25 @@ Below it the legend with a value per segment. No border around segments.
 
 ### 6.9 Table
 
-Header: 11.5 px caps, `--muted`, hairline below. Cells: 13.5 px, top-aligned.
-Number columns `.num` (right-aligned, tabular). Total row `tr.total` with a 2 px line
-above and semibold text. Wide tables sit in `.table-wrap`
-(`overflow-x: auto`) — **the page itself never scrolls horizontally**.
+Header: 11.5 px caps, `--muted`, hairline below. Cells: 13.5 px, top-aligned,
+tabular numerals throughout. **The alignment triad**: text left, numbers
+right (`.num`), badges center (`.ctr`) — a column picks one and keeps it.
+Total row `tr.total` with a 2 px line above and semibold text. Wide tables
+sit in `.table-wrap` (`overflow-x: auto`) — **the page itself never scrolls
+horizontally**.
+
+Two variants for table-first sections (design-manual.md 5.3):
+`.table--dense` tightens rows to ~36 px — a **generation-time** page decision
+(`density`), never a toggle; `.table--sticky` pins a tinted header band under
+the jump bar — only for a full-width table that fits *without* `.table-wrap`,
+because position: sticky cannot escape a scroll box.
+
+**A cell holds an atom** (design-manual.md 5.1): a name, a number, a short
+phrase. Rationale and multi-clause prose go into an `.acc` body (6.14) or the
+detail dialog (6.17) — `--check` flags cells over 80 visible characters. A
+column whose values are all identical is deleted; the shared fact moves into
+the section head's counter. A long table is authored top-N with a total row —
+`show_all()` (6.6) is for row lists, not `<tr>`.
 
 ### 6.10 Collapsible `details`
 
@@ -157,6 +227,10 @@ Not for body text, not stacked — at most two banners per page.
 
 Italic, `--muted`, says what is missing **and** what to do: "no entries — new
 files go into the project's intake folder first."
+
+Empty means invisible (design-manual.md 5.1): zero items are this one line or
+nothing — never a card around nothing (`--check` flags empty card bodies).
+When the absence itself is the alert, it is a `.banner` (6.11) instead.
 
 ### 6.13 Icons — `icon()`
 
@@ -190,6 +264,12 @@ visible without scrolling which row is currently expanded.
 
 Rules: the title is the file's `# ` line (short), the subtitle its
 `description` frontmatter (explanatory) — never the other way around. Closed by default.
+
+`tags="track-2 new"` (space-separated lowercase tokens) makes a row
+addressable by a `filter_row()` above the list (6.5); rows without it are
+never hidden by a filter. `.acc` rows are also the row type of choice for
+entities whose table would need prose cells — title line for the atoms,
+body for the rationale.
 
 ### 6.15 Status mark `.mark` — `status_marks()`
 
@@ -251,3 +331,57 @@ card(rows, title="Measured to-dos", sub="computed per directory",
 
 The footer stays mandatory as soon as the card shows computed values (5); the helper only
 makes the markup canonical. It adds no second box level — no card inside a card.
+`icon=icon("chart")` puts a small soft-accent glyph before the title — for
+the rare card whose identity needs a mark; most cards never carry one.
+
+### 6.27 Ranked bar list `.bar-list` — `bar_list()`
+
+The analytics workhorse: rows with a **proportional accent-tinted bar behind**
+label and right-aligned value — magnitude is visible before a single number
+is read (Plausible, Tremor).
+
+```python
+bar_list([("Berlin", 4210), ("Hamburg", 2380, "2 portals"), ("Köln", 990)],
+         unit="€", fmt=lambda v: fmt_num(v, 0))
+```
+
+Rules: 32 px rows; bars never drop below 2 % so every row stays visibly a
+bar; the helper does not sort — order is the author's statement, and ranked
+largest-first is the convention. The fill is `--accent-soft` (a tint, behind
+text — it never has to pass a text-contrast bar). Two bar-list cards pair
+two-up in a `.grid--2`. Beyond ~8 rows: top-N plus an "Other" row, detail in
+the dialog (6.17) — never a scrollbar.
+
+### 6.28 Tracker strip `.tracker` — `tracker()`
+
+Status over time as one row of contiguous ~10 px blocks, rounded only at the
+ends — anomalies pop as color breaks (Tremor).
+
+```python
+tracker([("good", "07-01 · passed")] * 20 + [("crit", "07-21 · failed")]
+        + [("good", "07-22 · passed")] * 9,
+        left="July 1", right="July 31")
+```
+
+Rules: 60–90 slices read best; **status tokens only** (2.3 discipline holds —
+red in a tracker means action was required at that point), neutral slices
+stay hairline gray. Each slice takes a `title` naming its time point and
+state — that, plus an adjacent count ("29 of 30 passed"), is the accessible
+reading. `left`/`right` label the span underneath in the meta voice.
+
+### 6.29 Metric-tab hero `.metric-tabs` — `metric_hero()`
+
+The sanctioned opening 5.2b: one hero chart card whose **header row is the
+KPI strip** — each metric a bordered cell, one marked active with the violet
+underline, and the chart below plots exactly that one (Plausible).
+
+```python
+metric_hero([("Applications", "34"), ("Responses", "9", "26 %"),
+             ("Interviews", "3")],
+            chart=sparkline(series, width=760, height=120, label="…"),
+            active=0, foot_right="As of 2026-08-18")
+```
+
+Static by design: the underline says what is plotted, nothing switches, and
+the inactive metrics are honest KPIs in their own right. Never together with
+a focus card — 5.2 sanctions exactly one opening.

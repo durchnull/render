@@ -100,7 +100,8 @@ jobs:
             templates/config.py templates/content.py templates/pages/__init__.py \
             templates/pages/dashboard/*.py \
             examples/questionnaire-project/.render/pages/survey/__init__.py \
-            examples/checklist-project/.render/pages/checklist/__init__.py
+            examples/checklist-project/.render/pages/checklist/__init__.py \
+            examples/section-project/.render/pages/status/*.py
 
       # The engine's own tests: no regression on section pages, the validator
       # refuses each malformed spec class, --prune deletes only what it wrote,

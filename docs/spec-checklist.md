@@ -84,10 +84,10 @@ list without it becoming work.
 
 ### Item state
 
-A closed set of three. `obsolete` cannot be set from the browser: striking an
-item out is an editorial judgement about the task list — it changes what the
-document *says* — so it belongs to whoever edits the file, where it gets a
-review step.
+The **document** knows a closed set of three. `obsolete` cannot be set from
+the browser: striking an item out is an editorial judgement about the task
+list — it changes what the document *says* — so it belongs to whoever edits
+the file, where it gets a review step.
 
 | State | Written as | Counts as done | Counts in the total | On the page |
 |---|---|---|---|---|
@@ -97,6 +97,15 @@ review step.
 
 A strikethrough counts only when it wraps the whole line. `- [ ] Tag ~~the~~
 release` is an open item with a struck word in it, not an obsolete item.
+
+The **person** working the page can additionally declare two states the
+checkbox syntax cannot hold (design manual 6.26): `na` ("does not apply" —
+an affirmative answer, counted as done in every ratio) and `deferred`
+("later" — still open work). Both travel in the hand-back as `~` state
+changes and full-state spellings (`n/a <text>`, `☐ <text> (later)`,
+`docs/handback.md` v3); neither has a mechanical edit — the parser routes
+them under `judgment:`, and where they land in the file (struck, annotated,
+left as is) is the applying agent's call.
 
 ### Annotations
 

@@ -43,11 +43,19 @@ BOX = {"open": "[ ]", "done": "[x]"}
 
 
 def read_state(text):
-    """A full-state line: the glyph carries the state, the rest is the text."""
+    """A full-state line: the glyph carries the state, the rest is the text.
+
+    ``n/a`` and ``(later)`` are the person's statements (grammar version 3) —
+    states the document itself has no checkbox form for.
+    """
     if text.startswith("~~") and text.endswith("~~"):
         return {"state": "obsolete", "text": text[2:-2]}
     if text.startswith("☑ "):
         return {"state": "done", "text": text[2:]}
+    if text.startswith("n/a "):
+        return {"state": "na", "text": text[4:]}
+    if text.startswith("☐ ") and text.endswith(" (later)"):
+        return {"state": "deferred", "text": text[2:-8]}
     if text.startswith("☐ "):
         return {"state": "open", "text": text[2:]}
     return {"state": None, "text": text}
@@ -174,7 +182,18 @@ def edit_plan(out, src: Path):
             plan["unmatched"].append({"fp": fp, "text": entry["text"]})
             continue
         if entry["was"] is not None:
-            if entry["state"] not in BOX:
+            if entry["state"] in ("na", "deferred"):
+                # The person's statement (grammar v3): the document has no
+                # checkbox form for it, so where it lands — struck, annotated,
+                # left as is — is the agent's editorial call.
+                said = ("does not apply" if entry["state"] == "na"
+                        else "deferred — will come back to it")
+                plan["judgment"].append(
+                    {"fp": fp, "text": known["text"], "group": known["group"],
+                     "state": known["state"],
+                     "why": f"declared {said}; no mechanical edit exists for "
+                            "this — place it in the document yourself"})
+            elif entry["state"] not in BOX:
                 # ``obsolete`` never appears as a ``~`` target; a block that
                 # carries one is asking for an editorial change sideways.
                 plan["judgment"].append(
@@ -201,10 +220,13 @@ def edit_plan(out, src: Path):
                         else f"note: {entry['note']}"})
 
     # What the file will say once the edits land, held against what the page
-    # says it should — the control listing is the page's whole belief.
+    # says it should — the control listing is the page's whole belief. The
+    # person-states (na, deferred) are part of that belief even though no
+    # edit carries them, or every such item would read as a mismatch.
     expected = {fp: i["state"] for fp, i in by_fp.items()}
     for fp, entry in out["items"].items():
-        if entry["was"] is not None and entry["state"] in BOX and fp in expected:
+        if (entry["was"] is not None and fp in expected
+                and (entry["state"] in BOX or entry["state"] in ("na", "deferred"))):
             expected[fp] = entry["state"]
     for fp, control in out["control"].items():
         if fp not in expected:

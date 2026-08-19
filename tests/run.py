@@ -631,7 +631,249 @@ class AppChromeInPrint(unittest.TestCase):
             self.assertIn(needle, block, needle)
 
     def test_base_css_already_covered_the_rest(self):
-        self.assertIn("nav.toc, .btn { display: none; }", design_system.BASE_CSS)
+        self.assertIn("nav.toc, .btn, .filters, .show-all, .pagebar a "
+                      "{ display: none; }",
+                      design_system.BASE_CSS)
+
+    def test_filtered_and_truncated_rows_return_in_print(self):
+        block = design_system.BASE_CSS.split("@media print")[-1]
+        self.assertIn(".is-filtered-out, .is-truncated { display: revert !important; }",
+                      block)
+
+
+class EditorialChecks(unittest.TestCase):
+    """§5's mechanical half in check_page: empty cards, prose in table cells."""
+
+    def shell(self, body):
+        from page_api import page_shell
+        return page_shell("Probe", body)
+
+    def test_a_card_with_only_head_sub_and_foot_is_flagged(self):
+        html = self.shell(design_system.card(
+            "", title="Open inputs", sub="not recorded anywhere yet",
+            foot_left="Source: criteria.md", foot_right="As of 2026-08-17"))
+        self.assertTrue(any("empty body" in f for f in check_page(html)), check_page(html))
+
+    def test_a_card_with_a_body_passes(self):
+        html = self.shell(design_system.card(
+            design_system.list_row("Working tree", "clean"), title="Repo state"))
+        self.assertEqual(check_page(html), [])
+
+    def test_a_chart_only_card_is_not_empty(self):
+        html = self.shell(design_system.card(
+            design_system.sparkline([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]),
+            title="Trend"))
+        self.assertEqual(check_page(html), [])
+
+    def test_prose_in_a_table_cell_is_flagged(self):
+        prose = ("Tracks 1+2: Laravel + Inertia + Vue + Tailwind — near-exact "
+                 "stack match; posted the day of the scan, verify still open.")
+        html = self.shell(f"<div class='table-wrap'><table><tbody>"
+                          f"<tr><td>fino GmbH</td><td>{prose}</td></tr>"
+                          f"</tbody></table></div>")
+        self.assertTrue(any("atom" in f for f in check_page(html)), check_page(html))
+
+    def test_short_cells_pass(self):
+        html = self.shell("<div class='table-wrap'><table><tbody>"
+                          "<tr><td>fino GmbH</td><td class='num'>68.000 €</td></tr>"
+                          "</tbody></table></div>")
+        self.assertEqual(check_page(html), [])
+
+
+class ListBehavior(unittest.TestCase):
+    """6.5 filter pills and 6.6 show-all: document-first, script-optional."""
+
+    def test_filter_row_prepends_an_active_all_pill(self):
+        html = design_system.filter_row([("track-2", "Track 2")], "#postings")
+        self.assertIn("data-filter-scope='#postings'", html)
+        self.assertIn("class='chip is-active' data-filter=''", html)
+        self.assertIn("data-filter='track-2'", html)
+        # The empty note is in the document, hidden until the script needs it.
+        self.assertIn("<span class='empty' hidden>", html)
+
+    def test_tagged_rows_carry_data_tags(self):
+        self.assertIn("data-tags='track-2 new'",
+                      design_system.list_row("fino GmbH", tags="track-2 new"))
+        self.assertIn("data-tags='track-5'",
+                      design_system.accordion("salesHAX", "<p>…</p>", tags="track-5"))
+
+    def test_show_all_below_the_limit_is_a_plain_join(self):
+        rows = [design_system.list_row(f"row {i}") for i in range(3)]
+        html = design_system.show_all(rows, limit=8)
+        self.assertNotIn("data-show-all", html)
+        self.assertEqual(html, "".join(rows))
+
+    def test_show_all_beyond_the_limit_wraps_and_hides_the_trigger(self):
+        rows = [design_system.list_row(f"row {i}") for i in range(10)]
+        html = design_system.show_all(rows, limit=8)
+        self.assertIn("data-show-all='8'", html)
+        self.assertIn("show all 10", html)
+        # Hidden by default: without scripting every row is simply visible.
+        self.assertIn("hidden>", html)
+
+    def test_the_chrome_scripts_reach_a_section_page(self):
+        from render import shell as _  # noqa: F401 — import proves the wiring
+        import render as render_module
+        source = (ENGINE / "render.py").read_text(encoding="utf-8")
+        self.assertIn("{FILTER_JS}{SHOWALL_JS}", source)
+        self.assertTrue(hasattr(render_module, "FILTER_JS"))
+
+
+class NewComponents(unittest.TestCase):
+    """The 2026-08-18 research adoptions: bar list, tracker, tile variants,
+    metric hero, count chips, decimal sub-numbers, the scale architecture."""
+
+    def test_bar_list_scales_to_the_largest_and_floors_at_two_percent(self):
+        html = design_system.bar_list([("A", 100), ("B", 50), ("C", 0.1)])
+        self.assertIn("width:100.0%", html)
+        self.assertIn("width:50.0%", html)
+        self.assertIn("width:2.0%", html)
+
+    def test_bar_list_formats_and_keeps_order(self):
+        html = design_system.bar_list([("Köln", 990), ("Berlin", 4210)], unit="€")
+        self.assertIn("990 €", html)
+        self.assertLess(html.index("Köln"), html.index("Berlin"))
+
+    def test_tracker_states_titles_and_span_labels(self):
+        html = design_system.tracker([("good", "07-01 · passed"), "crit", ""],
+                                     left="July 1", right="July 3")
+        self.assertIn("class='t-good'", html)
+        self.assertIn("title='07-01 · passed'", html)
+        self.assertIn("class='t-crit'", html)
+        self.assertIn("<span></span>", html)          # neutral slice, no class
+        self.assertIn("tracker-meta", html)
+
+    def test_tile_trend_and_capacity_variants(self):
+        html = design_system.tile("Storage used", "1,85 GB",
+                                  trend="Trending up this month",
+                                  capacity=(18.5, "1.85 of 10 GB"))
+        self.assertIn("class='trend'", html)
+        self.assertIn("Trending up this month", html)
+        self.assertIn("cap-note", html)
+        self.assertIn("width:18.5%", html)
+
+    def test_tile_group_is_one_tile(self):
+        html = design_system.tile_group([("A", "1"), ("B", "2", "detail"),
+                                         ("C", "3")])
+        self.assertEqual(html.count("class='tile'"), 1)
+        self.assertIn("tile-trio", html)
+        self.assertIn("detail", html)
+
+    def test_metric_hero_marks_exactly_one_active(self):
+        html = design_system.metric_hero(
+            [("A", "1"), ("B", "2", "26 %"), ("C", "3")],
+            "<svg class='chart'></svg>", active=1)
+        self.assertEqual(html.count("mt is-active"), 1)
+        self.assertLess(html.index("metric-tabs"), html.index("<svg"))
+
+    def test_section_head_count_chip(self):
+        html = design_system.section_head("Backlog", num="01", kicker="Work",
+                                          count=8)
+        self.assertIn("<span class='tag'>8</span></h2>", html)
+
+    def test_subhead_decimal_number(self):
+        html = design_system.subhead("Fixed costs", num="02.1")
+        self.assertIn("02.1", html)
+        self.assertIn("class='sub num'", html)
+
+    def test_card_takes_a_kind_glyph(self):
+        html = design_system.card("body", title="T",
+                                  icon=design_system.icon("chart"))
+        self.assertIn("class='icon-badge'", html)
+
+    def test_the_kind_glyphs_exist(self):
+        for name in ("chart", "list", "question", "doc"):
+            self.assertIn("<path", design_system.icon(name), name)
+
+    def test_tokens_are_derived_from_the_scales(self):
+        """The Geist-style architecture (2.1): every token value the scales
+        map comes out of the tables, so a palette change edits one dict."""
+        used_gray = {k: v for k, v in design_system.GRAY["light"].items() if k != 700}
+        for step, value in used_gray.items():
+            self.assertIn(value, design_system.TOKENS, f"gray light {step}")
+        used_dark = {k: v for k, v in design_system.GRAY["dark"].items() if k != 700}
+        for step, value in used_dark.items():
+            self.assertIn(value, design_system.TOKENS, f"gray dark {step}")
+        for step in (100, 300, 600, 700):
+            self.assertIn(design_system.VIOLET["light"][step],
+                          design_system.TOKENS, f"violet {step}")
+
+    def test_dark_surfaces_are_tinted_not_neutral(self):
+        # Blue channel above red/green: the 2–3 % violet tint (2.1/8).
+        for token in ("#0d0c12", "#17161c", "#1f1e25", "#121118", "#2b2a33"):
+            self.assertIn(token, design_system.TOKENS)
+        self.assertNotIn("#0c0c0f", design_system.TOKENS)
+
+    def test_the_reading_tokens_exist(self):
+        self.assertIn("--font-serif", design_system.TOKENS)
+        self.assertIn("--plane-read", design_system.TOKENS)
+        self.assertIn("Charter", design_system.TOKENS)
+
+
+class ArticleEndMatter(unittest.TestCase):
+    """11b.4/11b.5/11b.7 — the helpers the article script composes with."""
+
+    def test_source_list_backlinks_and_colophon(self):
+        html = design_system.source_list(["a.example/x", "b.example/y"],
+                                         linked=True,
+                                         colophon_line="rendered 2026-08-18")
+        self.assertIn("<li id='src-1'>", html)
+        self.assertIn("href='#ref-2'", html)
+        self.assertIn("class='colophon'", html)
+
+    def test_a_colophon_alone_still_renders(self):
+        html = design_system.source_list([], colophon_line="only this")
+        self.assertIn("only this", html)
+        self.assertNotIn("<ol>", html)
+
+    def test_aside_note_is_open_by_default(self):
+        html = design_system.aside_note(3, "<p>note</p>")
+        self.assertIn("<details class='aside' id='fn-3' open>", html)
+        self.assertIn("<summary>3</summary>", html)
+
+    def test_mini_toc_links_internally(self):
+        html = design_system.mini_toc([("part-a", "Part A")])
+        self.assertIn("<details class='mini-toc' open>", html)
+        self.assertIn("href='#part-a'", html)
+        self.assertEqual(design_system.mini_toc([]), "")
+
+
+class ExclusiveOptions(unittest.TestCase):
+    """6.19 — the GOV.UK 'None of these' behind an 'or' divider."""
+
+    def multi(self, options):
+        spec = valid_spec()
+        spec["sections"][0]["questions"][0] = {
+            "id": "q01", "question": "Which apply?", "type": "multi",
+            "options": options}
+        return spec
+
+    NONE_LAST = [{"key": "a", "label": "A"}, {"key": "b", "label": "B"},
+                 {"key": "none", "label": "None of these", "exclusive": True}]
+
+    def test_exclusive_on_single_is_refused(self):
+        spec = valid_spec()
+        spec["sections"][0]["questions"][0]["options"][0]["exclusive"] = True
+        bad = questionnaire.validate(spec, Path("s.json"))
+        self.assertTrue(any("single" in b and "exclusive" in b for b in bad), bad)
+
+    def test_exclusive_must_come_last(self):
+        spec = self.multi([{"key": "none", "label": "None", "exclusive": True},
+                           {"key": "a", "label": "A"}])
+        bad = questionnaire.validate(spec, Path("s.json"))
+        self.assertTrue(any("last" in b for b in bad), bad)
+
+    def test_a_valid_exclusive_renders_the_divider_and_the_payload(self):
+        spec = self.multi(self.NONE_LAST)
+        self.assertEqual(questionnaire.validate(spec, Path("s.json")), [])
+        ctx = kinds.BuildContext(object(), "survey", "s", Path("s.json"),
+                                 dict(questionnaire.STRINGS))
+        body, tail = questionnaire.build(spec, ctx)
+        html = body + tail
+        self.assertIn("class='q-or'", html)
+        self.assertIn('"exclusive":["none"]', html)
+        # The divider sits before the exclusive option.
+        self.assertLess(html.index("class='q-or'"), html.index("data-key='none'"))
 
 
 class ContentAddressedStore(unittest.TestCase):
@@ -669,8 +911,26 @@ class CheckRowComponent(unittest.TestCase):
         self.assertIn(" disabled>", html)
         self.assertIn("obsolete</span>", html)
 
+    def test_na_and_deferred_carry_their_word_and_open_stays_quiet(self):
+        """Attention inversion (6.26): tags on the person's statements, the
+        quiet states hidden — and the words ride the row for the script."""
+        na = self.row(state="na")
+        self.assertIn("data-state='na'", na)
+        self.assertIn(">n/a</span>", na)
+        deferred = self.row(state="deferred")
+        self.assertIn(">later</span>", deferred)
+        quiet = self.row()
+        self.assertIn("class='tag ck-state' hidden", quiet)
+        self.assertIn("data-word-na='n/a'", quiet)
+        self.assertIn("data-word-deferred='later'", quiet)
+
+    def test_actions_land_beside_the_note_opener(self):
+        html = self.row(actions="<button data-set='na'>n/a</button>")
+        self.assertIn("data-set='na'", html)
+        self.assertLess(html.index("data-set='na'"), html.index("data-note-open="))
+
     def test_every_state_still_reaches_its_note(self):
-        for state in ("open", "done", "obsolete"):
+        for state in ("open", "done", "obsolete", "na", "deferred"):
             self.assertIn("data-note-open=", self.row(state=state), state)
 
     def test_the_tick_is_labelled_by_the_instruction(self):
@@ -1500,6 +1760,73 @@ class ChecklistEditPlan(unittest.TestCase):
 
 # ------------------------------------------------------------- index page ----
 
+class IndexGrowthPath(ProjectCase):
+    """5.5 — the index grows by a count check: cards, then the strip, then
+    definition-list rows. Plus the one hero slot and the content covers."""
+
+    def html(self):
+        return self.project.output("index.html").read_text(encoding="utf-8")
+
+    def fill(self, n):
+        self.project.kind_page()
+        for i in range(n):
+            self.project.spec(f"s{i:02d}", valid_spec(id=f"s{i:02d}",
+                                                      title=f"Spec {i}"))
+        r = render(self.project.config, "--all")
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_small_counts_stay_uniform_cards(self):
+        self.fill(3)
+        html = self.html()
+        self.assertIn("class='idx-link'", html)
+        self.assertNotIn("<section class='idx-strip'>", html)
+        self.assertNotIn("<div class='idx-rows'>", html)
+        self.assertNotIn("idx-link idx-hero", html)
+        # The magazine card carries no apparatus: no stat tiles above the
+        # grid, no label/value fact rows, no source path on a card.
+        self.assertNotIn("class='tiles'", html)
+        self.assertNotIn("class='list-row'", html)
+
+    def test_from_four_the_most_recent_gets_the_hero_slot(self):
+        self.fill(4)
+        self.assertEqual(self.html().count("idx-link idx-hero"), 1)
+
+    def test_from_eight_the_recently_updated_strip_appears(self):
+        self.fill(8)
+        html = self.html()
+        self.assertIn("<section class='idx-strip'>", html)
+        self.assertIn("class='idx-link", html)      # still cards
+
+    def test_from_fifteen_cards_become_rows(self):
+        self.fill(15)
+        html = self.html()
+        self.assertNotIn("class='idx-link'", html)
+        self.assertIn("<div class='idx-rows'>", html)
+        self.assertIn("class='idx-row'", html)
+
+    def test_cards_carry_a_content_cover(self):
+        # A questionnaire instance draws the form motif: one dot-and-line
+        # row per question, from the kind's cover data.
+        self.fill(1)
+        html = self.html()
+        self.assertIn("class='idx-cover'", html)
+        self.assertIn("class='cv-fill'", html)
+
+
+class CrossPageChrome(ProjectCase):
+    """5.5 — the identical tiny header on every generated page."""
+
+    def test_pages_carry_the_pagebar_and_the_index_does_not(self):
+        self.project.section_page()
+        r = render(self.project.config, "--all")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        page = self.project.output("dashboard.html").read_text(encoding="utf-8")
+        self.assertIn("<div class='pagebar'>", page)
+        self.assertIn("href='index.html'>← Index</a>", page)
+        idx = self.project.output("index.html").read_text(encoding="utf-8")
+        self.assertNotIn("<div class='pagebar'>", idx)
+
+
 class IndexPage(ProjectCase):
     """The page nobody declares. What is worth asserting is not that it looks
     right — that is what ``check_page`` is for — but that it stays true to the
@@ -1555,20 +1882,20 @@ class IndexPage(ProjectCase):
         self.assertIn("two minutes", html)
 
     def test_a_kind_without_a_summary_still_gets_a_usable_card(self):
-        """The hook is optional: the spec's own title has to carry the card."""
+        """The hook is optional: the spec's own title has to carry the card,
+        and a record without cover data still draws (the document motif)."""
         record = index_module.instance_record(
             "survey", "first", object(), None,
             valid_spec(id="first", title="Only a title"), None,
-            "survey-first.html", Path("/p/questions/first.json"), Path("/p"),
-            {"idx_source": "Source"})
+            "survey-first.html")
         self.assertEqual(record["title"], "Only a title")
-        self.assertEqual(record["facts"], [["Source", "questions/first.json"]])
+        self.assertEqual(record["meta"], [])
+        self.assertIsNone(record["cover"])
 
     def test_an_instance_with_no_title_anywhere_falls_back_to_its_stem(self):
         record = index_module.instance_record(
             "survey", "first", object(), None, "not a mapping", None,
-            "survey-first.html", Path("/p/q.json"), Path("/p"),
-            {"idx_source": "Source"})
+            "survey-first.html")
         self.assertEqual(record["title"], "first")
 
     def test_rendering_one_page_keeps_the_cards_of_the_others(self):
@@ -1731,7 +2058,8 @@ class ExampleProjects(unittest.TestCase):
 
     #: Pages the example declares. The index is not one of them — the engine
     #: adds it to every project, so counting it here would say nothing.
-    EXPECTED = {"questionnaire-project": 2, "checklist-project": 1}
+    EXPECTED = {"questionnaire-project": 2, "checklist-project": 1,
+                "section-project": 1}
 
     def examples(self):
         return sorted(p for p in (ROOT / "examples").iterdir()
@@ -2296,18 +2624,75 @@ class ArticlePages(unittest.TestCase):
         self.assertIn("2026-08-01", html)
 
     def test_the_first_section_sits_one_step_under_the_masthead(self):
-        # The document leads with '#', so '##' has to land as h2, not h4.
-        self.assertIn("<h2>A section</h2>", self.page())
+        # The document leads with '#', so '##' has to land as h2, not h4 —
+        # carrying its anchor id for the mini-TOC (11b.7).
+        self.assertIn("<h2 id='a-section'>A section</h2>", self.page())
 
     def test_a_document_that_starts_at_h2_lands_at_h2_as_well(self):
         self.src.write_text("## Only level\n\ntext\n", encoding="utf-8")
-        self.assertIn("<h2>Only level</h2>", self.page())
+        self.assertIn("<h2 id='only-level'>Only level</h2>", self.page())
 
     def test_external_links_become_label_plus_reference(self):
+        # The label stays, the [n] becomes an INTERNAL sup anchor into the
+        # source list (11b.4) — no external href ever survives.
         html = self.page()
-        self.assertIn("doc link [1]", html)
-        self.assertNotIn("<a href", html)
+        self.assertIn("doc link <sup class='src-ref' id='ref-1'>"
+                      "<a href='#src-1'>[1]</a></sup>", html)
+        self.assertNotIn("href='http", html)
+        self.assertNotIn('href="http', html)
         self.assertIn("example.com/docs/a", html)
+
+    def test_sources_carry_backlinks_and_the_colophon_closes(self):
+        html = self.page()
+        self.assertIn("<li id='src-1'>", html)
+        self.assertIn("class='backref' href='#ref-1'", html)
+        self.assertIn("class='colophon'", html)
+        self.assertIn("single file, works offline", html)
+
+    def test_footnotes_become_asides(self):
+        self.src.write_text(
+            "# T\n\nProse with a note.[^a]\n\n[^a]: The aside text.\n",
+            encoding="utf-8")
+        html = self.page()
+        self.assertIn("<details class='aside' id='fn-1' open>", html)
+        self.assertIn("id='fn-ref-1'", html)
+        self.assertIn("The aside text.", html)
+
+    def test_two_notes_in_one_paragraph_fall_back_to_endnotes(self):
+        self.src.write_text(
+            "# T\n\nOne.[^a] Two.[^b]\n\n[^a]: First.\n[^b]: Second.\n",
+            encoding="utf-8")
+        html = self.page()
+        self.assertNotIn("<details class='aside'", html)
+        self.assertIn("<ol class='endnotes'>", html)
+        # The list shows the notes' real numbers, agreeing with the sup marks.
+        self.assertIn("<li id='fn-1' value='1'>", html)
+        self.assertIn("<li id='fn-2' value='2'>", html)
+
+    def test_prose_led_documents_take_the_indent_mode(self):
+        self.src.write_text(
+            "# T\n\n" + "\n\n".join(f"Paragraph {i} of running prose."
+                                    for i in range(8)),
+            encoding="utf-8")
+        self.assertIn("class='article article--indent'", self.page())
+
+    def test_list_heavy_documents_stay_spaced(self):
+        # The SOURCE fixture leans on a list and a fence: spaced mode.
+        self.assertIn("class='article'>", self.page())
+
+    def test_four_sections_earn_the_mini_toc(self):
+        self.src.write_text(
+            "# T\n\n" + "".join(f"## Part {c}\n\ntext\n\n" for c in "abcd"),
+            encoding="utf-8")
+        html = self.page()
+        self.assertIn("<details class='mini-toc' open>", html)
+        self.assertIn("href='#part-a'", html)
+
+    def test_three_sections_do_not(self):
+        self.src.write_text(
+            "# T\n\n" + "".join(f"## Part {c}\n\ntext\n\n" for c in "abc"),
+            encoding="utf-8")
+        self.assertNotIn("<details class='mini-toc'", self.page())
 
     def test_a_link_into_the_project_keeps_its_label_and_is_not_listed(self):
         html = self.page()

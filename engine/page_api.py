@@ -38,15 +38,16 @@ from design_system import (  # noqa: F401 — re-exported facade surface
     # formatting helpers
     esc, fmt_eur, fmt_num, de_date,
     # components
-    badge, delta, tile, card, focus_card, accordion, icon, eyebrow,
+    badge, delta, tile, tile_group, card, focus_card, accordion, icon, eyebrow,
     section_head, subhead, crumbs, list_row, meter_row, share_bar, legend,
     sparkline, status_marks, timeline, timeline_key, modal_host, modal_detail,
-    MODAL_JS, SERIES_COUNT,
+    filter_row, show_all, bar_list, tracker, metric_hero,
+    MODAL_JS, FILTER_JS, SHOWALL_JS, SERIES_COUNT,
     # input and app chrome
     option_row, field, text_field, amount_field, progress_bar, action_bar,
     toast, summary_row, check_row, TOAST_JS, STATE_JS, HANDBACK_JS, handback_js,
     # long-form pages
-    article_head, pull_quote, source_list,
+    article_head, pull_quote, source_list, aside_note, mini_toc,
 )
 
 from content_core import (  # noqa: F401 — re-exported facade surface
@@ -59,17 +60,18 @@ __all__ = [
     # design system
     "TOKENS", "BASE_CSS", "FORM_CSS", "APP_CSS", "ARTICLE_CSS", "STRINGS", "set_strings",
     "esc", "fmt_eur", "fmt_num", "de_date",
-    "badge", "delta", "tile", "card", "focus_card", "accordion", "icon",
+    "badge", "delta", "tile", "tile_group", "card", "focus_card", "accordion", "icon",
     "eyebrow", "section_head", "subhead", "crumbs", "list_row", "meter_row",
     "share_bar", "legend", "sparkline", "status_marks",
     "timeline", "timeline_key", "modal_host", "modal_detail",
-    "MODAL_JS", "SERIES_COUNT",
+    "filter_row", "show_all", "bar_list", "tracker", "metric_hero",
+    "MODAL_JS", "FILTER_JS", "SHOWALL_JS", "SERIES_COUNT",
     # input and app chrome (interactive pages — design-manual.md 6b / 11)
     "option_row", "field", "text_field", "amount_field", "progress_bar",
     "action_bar", "toast", "summary_row", "check_row",
     "TOAST_JS", "STATE_JS", "HANDBACK_JS", "handback_js",
     # long-form pages (design-manual.md 11b)
-    "article_head", "pull_quote", "source_list",
+    "article_head", "pull_quote", "source_list", "aside_note", "mini_toc",
     # content core
     "parse_frontmatter", "read_md", "md_to_html", "inline", "prose",
     "drop_blocks", "strip_leading_h1", "split_title", "fmt_size",
@@ -126,16 +128,43 @@ def page_shell(title: str, body: str, lang: str = "en", favicon: str = "📊",
 HEX_ALLOWED = {"#000", "#fff", "#000000", "#ffffff"}
 
 
+def _div_span(text: str, start: int) -> int:
+    """End index of the ``<div …>`` block opening at ``start``, by tag depth."""
+    depth = 0
+    for m in _re.finditer(r"<(/?)div\b", text[start:]):
+        if m.group(1):
+            depth -= 1
+            if depth == 0:
+                end = text.find(">", start + m.start())
+                return end + 1 if end >= 0 else len(text)
+        else:
+            depth += 1
+    return len(text)
+
+
+# A card body counts as empty only when nothing in it carries data — a card
+# whose sole content is a chart or a share bar is a statement, not padding.
+_CARD_DATA = _re.compile(r"<svg|share-bar|meter|<input|<details|<table")
+
+# design-manual.md §5: a table cell holds an atom — a name, a number, a short
+# phrase. Anything longer is prose that belongs in an accordion body or the
+# detail dialog, and it is what breaks a table's layout first.
+_CELL_ATOM_MAX = 80
+
+
 def check_page(text: str) -> list:
     """Deterministic page checks — the generic half of ``render.py --check``.
 
     Verifies what every page rendered with this engine must hold, dashboard
     or not: self-containment (no ``src=``, no stylesheet links, no
     ``@import``, no ``https://`` anywhere in the markup outside SVG
-    ``xmlns`` declarations), hex colors only inside the token blocks, and
-    no unresolved ``{PLACEHOLDER}`` leftovers. Returns a list of findings;
-    an empty list means the page passes. Project-local renderers call this
-    before writing their output — do not ship on findings.
+    ``xmlns`` declarations), hex colors only inside the token blocks, no
+    unresolved ``{PLACEHOLDER}`` leftovers — and the mechanical half of the
+    editorial rules in design-manual.md §5: no card whose body is empty
+    beyond its head, subline and footer, and no prose in a table cell.
+    Returns a list of findings; an empty list means the page passes.
+    Project-local renderers call this before writing their output — do not
+    ship on findings.
     """
     errors = []
 
@@ -167,5 +196,32 @@ def check_page(text: str) -> list:
     # Unresolved f-string leftovers.
     for rest in _re.findall(r"\{[A-Z_]{3,}\}", text):
         errors.append(f"unresolved placeholder {rest}")
+
+    # §5: empty means invisible — a card with no body beyond its head,
+    # subline and footer is a rendered nothing; it becomes one `.empty`
+    # line (or a banner, when the absence is the alert) or disappears.
+    empty_cards = 0
+    for m in _re.finditer(r"<div class=['\"]card[ '\"]", text):
+        block = text[m.start():_div_span(text, m.start())]
+        body = _re.sub(r"<div class=['\"]card-(?:head|foot)['\"]>.*?</div>", "", block, flags=_re.S)
+        body = _re.sub(r"<p class=['\"]card-sub['\"]>.*?</p>", "", body, flags=_re.S)
+        visible = _re.sub(r"<[^>]+>", "", body).strip()
+        if not visible and not _CARD_DATA.search(body):
+            empty_cards += 1
+    if empty_cards:
+        errors.append(f"{empty_cards} card(s) with an empty body — render an "
+                      "`.empty` line or nothing, never a card around nothing (§5)")
+
+    # §5: a table cell holds an atom; prose goes into an accordion body or
+    # the detail dialog. Length is measured on the visible text.
+    prose_cells = 0
+    for cell in _re.findall(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", text, _re.S):
+        plain = _html.unescape(_re.sub(r"<[^>]+>", " ", cell))
+        if len(" ".join(plain.split())) > _CELL_ATOM_MAX:
+            prose_cells += 1
+    if prose_cells:
+        errors.append(f"{prose_cells} table cell(s) over {_CELL_ATOM_MAX} visible "
+                      "characters — a cell holds an atom, prose belongs in an "
+                      "accordion or the detail dialog (§5)")
 
     return errors

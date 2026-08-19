@@ -33,5 +33,7 @@ the engine's kinds win on a name collision). Read
 `${CLAUDE_PLUGIN_ROOT}/engine/kinds/__init__.py` for the contract — that
 module's docstring is the specification. Implement its optional
 `summary(spec, ctx)` hook too: without it every instance's index card falls
-back to the spec's bare title, and the kind is the only thing that knows
-what is worth saying about one of its pages.
+back to the spec's bare title and the generic document cover, and the kind
+is the only thing that knows what is worth saying about one of its pages —
+the `meta` phrases for the card's one meta line and the `cover` counts its
+motif is drawn from.

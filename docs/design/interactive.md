@@ -95,6 +95,13 @@ reader has no way to know which of them is about what they just did. Filtering i
 exception that proves it: hiding rows changes what is *shown*, never what is counted, so
 the totals must not move when a filter does.
 
+**A closed branch never discards answers.** A question hidden by a condition
+is removed from the flow — never grayed, never disabled (USWDS) — and its
+recorded answers are *retained*: they leave the hand-back (the question is
+"not asked") and return intact if the branch reopens. Nothing is silently
+deleted, so no destructive-change confirmation is ever needed — the design
+removes the destruction instead of confirming it.
+
 ### 11.7 When the document can change under the state
 
 A questionnaire's spec is authored *for* the page, so its ids are stable by construction.

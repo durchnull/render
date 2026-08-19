@@ -76,8 +76,10 @@ does not have, the other mirrors data the project maintains:
 ## The index page
 
 The one page no project declares. Every run also writes
-`<out dir>/index.html`: one card per output, linking to it, with the
-title, the description and a few facts about what is inside.
+`<out dir>/index.html`: one magazine card per output, linking to it, with
+the title, the description, a small cover graphic drawn from what is
+inside (a checklist's progress, a questionnaire's questions, a section
+page's sections) and one quiet meta line.
 
 It is rewritten whenever anything the project renders changes, so it
 never goes stale against the directory it describes, and a record leaves

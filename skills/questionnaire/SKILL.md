@@ -74,8 +74,23 @@ The rules that matter:
 - `type` is `single` (default) · `multi` · `amount` · `text`; prefer `single`
   over free text; give every question a `why`; use `show-if` rather than
   "if applicable" prose
-- option `key`s are short and stable, labels are free to reword
+- option `key`s are short and stable, labels are free to reword; a multi
+  question whose honest answer can be "none of these" gets that as its
+  **last** option with `"exclusive": true` — never as prose in the intro
 - anything the schema does not know belongs in `meta`, which is never rendered
+
+Authoring the questions themselves (USWDS/GOV.UK evidence, baked into the
+design — your job is only the content):
+
+- **micro-topic sections**, ordered simple → difficult: the section title is
+  the subheading the person sees over each question
+- amounts: ask "roughly how much" and accept what is typed — the page never
+  parses or normalizes a value, so `~1.200` and `500–800` are valid answers
+- never mark anything optional and never make anything mandatory; Skip and
+  Don't-know standing on every question carry that message
+- the intro states up front that answers stay in the file's local storage,
+  so people know they can close it and come back (the engine's footer and
+  resume banner do this — don't repeat it in your intro text)
 
 Strict JSON, no comments. Unknown keys are errors on purpose — a typo that
 renders is a question nobody will ever see. The validator prints **every**

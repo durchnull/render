@@ -51,7 +51,7 @@ all; the run reports every finding and exits non-zero.
 | spec | `id` | yes | Stable. Keys the saved answers **and** the output file name — changing it starts a new, empty page. Lowercase letters, digits, `. - _`. |
 | spec | `title` | yes | |
 | spec | `intro` | no | Markdown, rendered at build time. Its first paragraph line is also the description on this questionnaire's index card, so write that line to stand on its own. |
-| spec | `estimate`, `impact`, `created` | no | Meta chips on the intro screen; `estimate` and `created` also reach the index card. |
+| spec | `estimate`, `impact`, `created` | no | Meta chips on the intro screen; `estimate` also reaches the index card's meta line (verbatim, next to the question count — write it as a phrase, "about two minutes"). |
 | spec | `handback-marker` | no | Default `QUESTIONNAIRE ANSWERS`. See [handback.md](handback.md). |
 | spec | `sections` | yes | At least one. |
 | section | `title` | yes | Shown in the progress bar while its questions are on screen. |
@@ -74,12 +74,14 @@ all; the run reports every finding and exits non-zero.
 | option | `label` | yes | What the person reads. Reword freely; the key carries the meaning. |
 | option | `hint` | no | Second line. |
 | option | `note` | no | Pre-opens the note field when this option is chosen. |
+| option | `exclusive` | no | Multi only, last option(s) only: "None of these". Renders behind an "or" divider; choosing it clears the others and vice versa. An answer about the world — never a substitute for Skip. |
 
 ## What the validator refuses
 
 - a missing `id`, `title`, `sections`, or an empty section
 - a duplicate question id anywhere in the spec
 - `single`/`multi` with fewer than two options, or duplicate/blank option keys
+- `exclusive` on a `single` question, or an exclusive option that is not last
 - options on an `amount` or `text` question, `unit` on anything but `amount`
 - `show-if` pointing at a question that does not exist, at itself, at a question
   with no options, or at option keys that question does not offer

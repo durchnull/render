@@ -42,8 +42,28 @@ python3 scripts/article.py INPUT.md [-o OUT.html] [--title …] [--kicker …] [
 | `--date` | the date in the meta line | frontmatter `date`, else the file's own mtime |
 
 The date defaults to the **document's** date, never today's — re-rendering an
-old file must not restamp it as new. The meta line also carries a reading
-time, estimated at 220 words per minute.
+old file must not restamp it as new. The meta line also carries the word
+count, a reading time estimated at 230 words per minute, the source count,
+and a frontmatter `status` passed through verbatim (never invented). The
+**colophon** at the foot carries the render date — that one is genuinely
+"when this file was made".
+
+## What the page does beyond the markdown
+
+All of it from the document itself, none of it configurable (the rules are
+[design/longform.md](design/longform.md)):
+
+- **Paragraph mode** — prose-led documents get book indents
+  (`.article--indent`), list- and code-heavy ones keep spaced paragraphs.
+- **Footnotes become margin asides** — `[^key]` / `[^key]: …` render as open
+  disclosure notes beside the text at reading width; two notes anchored in
+  one paragraph fall back to an end-notes list.
+- **A mini-TOC** appears for documents with four or more sections; every
+  section heading carries a stable slug anchor either way.
+- **An opening blockquote is the epigraph**; a `---` renders as the `· · ·`
+  dinkus; the first paragraph gets the drop cap.
+- **Sources link both ways** — `[n]` in the text is an internal anchor into
+  the list, each entry carries a `↩` back.
 
 ## Where the headline comes from
 

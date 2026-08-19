@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Registry of the project's pages.
 
+This file states the contract; it belongs to the plugin and ``/render:init``
+replaces it with the installed version whenever the two differ. The pages
+themselves are subpackages beside it and are never touched.
+
 Every subpackage of this package is one page, designed by the project:
 ``pages/<id>/`` renders to ``<out dir>/<id>.html``. Page ids are lowercase
 letters only. Add a page by adding a folder — the engine discovers it,
-renders it, caches it and checks it like every other page.
+renders it, caches it and checks it like every other page, and lists it on
+``<out dir>/index.html`` with whatever ``TITLE`` and ``DESCRIPTION`` say.
 
 ``pages/<id>/__init__.py`` is the page — shell plus what it is built from:
 
@@ -12,6 +17,11 @@ renders it, caches it and checks it like every other page.
     SECTIONS   list of (id, number, kicker, title, subline, nav label) in
                display order; each id needs a sibling module
                ``pages/<id>/<sid>.py``
+    DESCRIPTION
+               required: one sentence saying what the page is for. Shown on
+               the index page's card for it — the only place a page
+               introduces itself to someone who has not opened it yet, which
+               is why ``--check`` reports a page that leaves it out.
     optional   FILENAME, LANG, FAVICON_HREF, EXTRA_CSS, HERO_HTML / hero(),
                FOOTER_HTML / footer(generated), GENERATED_FMT, STRINGS
                — unset values fall back to config.py, then to defaults

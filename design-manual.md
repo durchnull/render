@@ -60,19 +60,36 @@ against the respective surface) — not estimated.
 
 | Role | Token | Light | Dark | Usage |
 |---|---|---|---|---|
-| Page plane | `--plane` | `#f5f5f7` | `#0c0c0f` | Body background |
-| Card | `--surface` | `#ffffff` | `#17171b` | Cards, tiles, chart surface |
-| Control | `--raised` | `#ffffff` | `#1f1f23` | Buttons, inputs on cards |
-| Inset | `--inset` | `#f9f9fb` | `#121216` | Code, quotes, context blocks |
+| Page plane | `--plane` | `#f5f5f7` | `#0d0c12` | Body background |
+| Reading plane | `--plane-read` | `#fbfaf6` | `#141318` | Body background of the article tier only (11b) — warm in light, lifted in dark |
+| Card | `--surface` | `#ffffff` | `#17161c` | Cards, tiles, chart surface |
+| Control | `--raised` | `#ffffff` | `#1f1e25` | Buttons, inputs on cards |
+| Inset | `--inset` | `#f9f9fb` | `#121118` | Code, quotes, context blocks |
 | Primary text | `--ink` | `#101828` (17.8:1) | `#f7f7f8` (16.7:1) | Headings, values |
 | Body text | `--ink-2` | `#475467` (7.7:1) | `#cecfd2` (11.5:1) | Paragraphs, labels |
 | Meta | `--muted` | `#667085` (5.0:1) | `#94969c` (6.1:1) | Timestamps, axes, notes |
 | Decorative | `--faint` | `#98a2b3` (2.6:1) | `#85888e` (5.0:1) | **never text** — icons and disabled elements only |
-| Hairline | `--hairline` | `#eaecf0` | `#2a2a31` | Dividers, gridlines |
+| Hairline | `--hairline` | `#eaecf0` | `#2b2a33` | Dividers, gridlines |
 | Border | `--border` | `rgba(16,24,40,.10)` | `rgba(255,255,255,.10)` | Card and button borders |
 
 Shadows only in light mode and only as a hint: `--shadow: 0 1px 2px rgba(16,24,40,.05)`.
 In dark mode the border does the separating, not the shadow (`--shadow: none`).
+
+**Dark surfaces are tinted, never pure neutral.** Every dark surface and
+hairline sits 2–3 % toward the violet hue (`#0d0c12`, not `#0c0c0f`) — the
+"brand color at 1–10 % lightness" discipline (Linear, Bear Blog). Text steps
+stay neutral. The light plane stays neutral too; only the article tier takes
+the barely-warm `--plane-read` (Tufte's `#fffff8` direction).
+
+**The architecture underneath: two 10-step scales.** The semantic tokens
+above are assigned from two Geist-style lookup tables in `design_system.py`
+(`GRAY`, `VIOLET`), identical in structure for both hues and both modes:
+steps 100–300 are backgrounds, 400–600 lines and borders, 700 reserved,
+800 meta text, 900 secondary text, 1000 primary text; the card tier rides as
+named `surface`/`raised` entries. Dark mode is therefore a **re-derivation
+of the same structure**, never a set of per-component overrides — a new
+token is assigned from a step, and a palette change edits the table, not
+twenty rules. The visible values are exactly the table above.
 
 ### 2.2 Accent
 
@@ -99,6 +116,11 @@ are separate, because the same color cannot do both jobs.
 | Info | `#175cd3` / `#84caff` | — | — | "to review" |
 
 Status colors are **reserved** — never use them as "series 7" for data.
+
+**Red only ever means "needs attention now".** The critical tier never
+appears decoratively, never as emphasis, never as a brand note — it appears
+when action is required and nowhere else (Mercury's discipline). A page on
+which nothing is wrong contains no red.
 
 ### 2.4 Series colors for charts
 
@@ -146,7 +168,15 @@ chroma floor, color-vision-deficiency distance (worst neighbor pair
 ## 3. Typography and hierarchy
 
 System font, everywhere: `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`.
-No secondary typeface, no serifs, no display cuts — not even for large numbers.
+No display cuts, no webfonts — not even for large numbers. **Two deliberate
+second voices exist, both from the OS:**
+
+- the **article tier** (11b) reads in the system book face
+  (`--font-serif`: Charter / Sitka Text / Cambria) — the text serif, the
+  apparatus around it sans. Long-form only; a dashboard never sets a serif.
+- **metadata reads in the system mono** (`--font-mono`) at small size:
+  timestamps, as-of lines, card footers, accordion meta, the page bar.
+  Numbers align for free and the page reads as instrument, not brochure.
 
 ### 3.1 Five levels, five sizes
 
@@ -210,8 +240,15 @@ empty state (`.empty`) and for highlighting technical terms.
 
 **Numbers.**
 - Large single values (KPI tile, hero number): **proportional figures** — the default.
-- Number columns in tables, list values, axis labels:
-  `font-variant-numeric: tabular-nums` (class `.num`), right-aligned.
+- **Everywhere numbers can align, they are tabular**: every table cell,
+  badges and deltas, timestamps, meta lines and the mono metadata voice all
+  carry `font-variant-numeric: tabular-nums` in `BASE_CSS` — free with
+  system fonts, and it is what makes columns auditable. `.num` additionally
+  right-aligns number columns.
+- **Small caps are always tracked caps**, never `font-variant: small-caps`:
+  system fonts have no real small caps and the synthesized ones look broken.
+  The pattern is `text-transform: uppercase` at ~0.8 em with `letter-spacing:
+  .08em`, weight 500 — the eyebrow, the article meta line, "Sources".
 - German notation in body text: `1.234,56 €`, `12,5 %` (a narrow space before
   `%` is not required, but a regular space belongs there).
 - Never abbreviate amounts ("12,9 T€") — wherever receipt-level values are shown, the
@@ -232,7 +269,7 @@ empty state (`.empty`) and for highlighting technical terms.
 | Purpose | Value |
 |---|---|
 | Page margin (desktop / mobile) | 24 / 16 |
-| Content width dashboard / text | 1040 / 720 |
+| Content width dashboard / text / reading shell | 1040 / 720 / 1160 (`.wrap--read`, article tier only — prose stays at 66 ch inside it, the width is for margin asides and wide tables, 11b.6) |
 | **Space between sections** | **56** — the largest gap on the page; it separates the levels |
 | Section head → content | 20 (hairline in between) |
 | Group title (E3) → content | 12, with 32 before it |
@@ -314,6 +351,131 @@ The footer is mandatory as soon as the card shows computed values: the follow-up
 link on the left, the as-of date on the right ("🕒 As of …"). For estimated values it
 additionally says "estimated — to review".
 
+### 5.1 What earns its place on the page
+
+Structure says where things go; these rules say **what goes at all**. They
+exist because the failure mode of a generated page is not ugliness — it is
+a correct, well-styled page that buries the thing it was opened for.
+
+1. **Lead with what changed.** Sections are ordered by volatility: the
+   living data the page is opened for first, reference material
+   (definitions, criteria, standing lists) last — rendered as `.acc` rows,
+   **closed**. If a reference section never changes between visits, ask
+   whether it belongs on this page at all rather than in the source
+   document alone.
+2. **The first screen answers the question the page is opened for.** The
+   focus card states the thing to act on, not the inventory ("3 to
+   verify", not "19 on the list"); everything above the first section head
+   must survive the question "would the reader act on this today?"
+3. **Every number appears once.** KPI tiles never restate the focus card's
+   coverage line or each other; a tile that cannot say something of its own
+   is dropped. Repetition does not emphasize — it makes the reader check
+   whether the two numbers differ.
+4. **Empty means invisible.** Zero items render as one `.empty` line
+   (6.12) or nothing — never a card around nothing. When the absence
+   itself is the alert ("no salary floor set — everything downstream is
+   unsized"), it is a `.banner` and counts against the two-banner budget
+   (6.11). `--check` flags a card whose body is empty beyond its head,
+   subline and footer.
+5. **A table cell holds an atom.** A name, a number, a short phrase.
+   Rationale, assessments and multi-clause prose go into an `.acc` body
+   (6.14) or the detail dialog (6.17) — prose in a cell is also what
+   breaks the column layout first. A column whose values are all identical
+   carries no information: delete it and put the shared fact in the
+   section head's counter ("11 postings · all new"). `--check` flags cells
+   over 80 visible characters.
+6. **Long lists truncate.** From eight rows on, `show_all()` (6.6) or the
+   closed-by-default `.acc` list; filters (6.5) are view-only
+   conveniences, never the only way to reach content.
+
+### 5.2 Sanctioned openings — exactly one per page
+
+The slot below the first section head belongs to **one** opening. Three are
+sanctioned; which one is an editorial decision the page's author makes from
+what the data is for — never two at once, and the focus rule (3.2) holds in
+all three:
+
+- **a. Focus card** (`focus_card()`, 6.0c) — the default: the one number the
+  page is opened for, next step, progress.
+- **b. Metric-tab hero** (`metric_hero()`, 6.29) — when the page is about a
+  *trend*: one hero chart card whose header row is the KPI strip, one metric
+  marked active (violet underline) and plotted. Static — the underline says
+  what is plotted; nothing switches.
+- **c. Needs-attention queue** — when the page is an *operator's* page over
+  live project data (failures, overdue items, exceptions): a card of
+  `list_row()`s with status badges, count in the section head, leads the
+  page. Operator dashboards lead with actionable queues, not charts (Ramp,
+  Brex, Stripe). The queue shows only the troubled items — an empty queue is
+  one `.empty` line, and that line is the good news.
+
+### 5.3 Layout variants
+
+- **Bento tiering** (`.bento`, spans `b-2 … b-6`, `b-hero`) — an *optional*
+  dashboard layout for pages whose author genuinely ranked the tiles:
+  importance decides span and count. Hero 4 cols × 2 rows holding the focus
+  statement, **at most two heroes**, metric tiles 2–3 cols, one accent tile
+  for the one alert. Content-to-size mapping is the whole point — **equal
+  sizes are a failed bento**, and machine-assigned spans imply judgments
+  nobody made, which is why the index (5.5) never uses it. DOM order =
+  visual order; single column below 820 px.
+- **Table-first sections** (6.9) — when one disciplined full-width table IS
+  the content and charts are its summaries: sticky tinted header band
+  (`.table--sticky`, only for tables that fit without `.table-wrap` — sticky
+  cannot work inside a scroll box), the alignment triad (text left, numbers
+  right `.num`, badges center `.ctr`), and a compact variant
+  (`.table--dense`) chosen at **generation time** — density is a page
+  decision, never a toggle.
+
+### 5.4 Numbering depth
+
+Sections number `01 … 06` (5, 6.0). Inside a long report's numbered section,
+card and group headings may carry decimal sub-numbers — `subhead(num="02.1")`
+— so a reader can cite "02.1" in a conversation about the page (Linear
+Method). Two levels, never three.
+
+### 5.5 The index page and cross-page chrome
+
+The index (`engine/index.py`) is furniture the engine keeps, and it grows by
+a **count check, never config**:
+
+- **3–7 outputs** — the uniform magazine grid. Cards have a fixed anatomy:
+  cover motif · title · one clamped description line · one quiet mono meta
+  line (the kind's finished phrases, then the absolute date). The whole
+  card is one `<a>`; no per-card buttons — and no apparatus: no stat tiles
+  above the grid, no label/value fact rows, no file names or sizes. The
+  index exists to be left within seconds, so everything on a card either
+  helps the choice or is gone.
+- **The cover** is a small abstract drawing of what the page actually
+  holds, derived from real counts and drawn in the two accent classes on
+  the inset band: a progress mosaic for a checklist (one cell per counted
+  item, done ones filled and ticked), a form silhouette for a questionnaire
+  (one dot-and-line row per question), a page wireframe for a section page
+  (one block per section); a record without cover data falls back to a
+  document motif. A motif, deliberately not a chart: it caps at what stays
+  legible at cover size, and the meta line carries the exact numbers. The
+  kind's `badge` (a checklist's live progress) is the one piece of status
+  that may sit on the cover.
+- **from 8** — a slim **"Recently updated"** strip (title + mono date rows)
+  above the sections answers "continue where I left off" first.
+- **from 15** — grouped **definition-list rows** instead of cards: bold
+  title, one description line, mono date, one hairline per row, whole row a
+  link. Browsing became known-item finding; cards stop earning their height.
+  Here the kind glyphs (one violet `icon()` per kind) return as the
+  heterogeneity signal — rows have no room for a cover.
+- **One hero slot** — from 4 outputs, the most recently updated card spans
+  two tracks (`.idx-hero`): a judgment the generator can legitimately make,
+  and the only piece of bento the index takes.
+- **Absolute dates only.** Relative timestamps become lies in static output.
+  Empty groups are omitted entirely, never rendered as an apology.
+
+**Cross-page chrome.** Every generated page carries the same tiny header
+(`.pagebar`): project mark · "← Index" · rendered date — navigation learned
+once, provenance stated once, in the mono metadata voice. The index itself
+omits it. Prev/next links between a kind's instances were considered and
+rejected: a sibling appearing or vanishing would have to re-render every
+neighbor the cache believes is current — a staleness class the engine
+refuses to create.
+
 ---
 
 ## 6. Components — the catalog
@@ -327,25 +489,25 @@ before writing the markup.** Which files a page needs is mechanical:
 |---|---|
 | dashboard / report / any section page | `components.md`, plus `charts.md` when it charts |
 | interactive page (form, checklist, app-like) | `components.md`, `chrome.md`, `interactive.md` |
-| article / long-form | none of them — `scripts/article.py` embodies 11b |
+| article / long-form | `longform.md` — `scripts/article.py` embodies it |
 
 ### `docs/design/components.md` — §6 — the dashboard and report vocabulary
 
 | § | Component | Helper |
 |---|---|---|
-| 6.0 | Section head `.section-head` | `section_head()` |
-| 6.0b | Group title `.subhead` | `subhead()` |
+| 6.0 | Section head `.section-head` (count chip) | `section_head()` |
+| 6.0b | Group title `.subhead` (decimal number) | `subhead()` |
 | 6.0c | Focus card `.focus` | `focus_card()` |
-| 6.1 | KPI tile `.tile` | `tile()` |
+| 6.1 | KPI tile `.tile` — trend line, capacity, dual delta, triplet | `tile()`, `tile_group()` |
 | 6.2 | Delta and badge | `delta()`, `badge()` |
 | 6.3 | Chip and tag |  |
 | 6.3b | Navigation path `.crumbs` | `crumbs()` |
 | 6.4 | Buttons |  |
-| 6.5 | Tabs / filter row |  |
-| 6.6 | List row `.list-row` | `list_row()` |
+| 6.5 | Tabs / filter row | `filter_row()`, `FILTER_JS` |
+| 6.6 | List row `.list-row` | `list_row()`, `show_all()`, `SHOWALL_JS` |
 | 6.7 | Meter `.meter` | `meter_row()` |
 | 6.8 | Share bar `.share-bar` | `share_bar()` |
-| 6.9 | Table |  |
+| 6.9 | Table (dense and sticky variants) |  |
 | 6.10 | Collapsible `details` |  |
 | 6.11 | Banner `.banner` |  |
 | 6.12 | Empty state `.empty` |  |
@@ -355,6 +517,9 @@ before writing the markup.** Which files a page needs is mechanical:
 | 6.16 | Active navigation |  |
 | 6.17 | Detail dialog `dialog.modal` | `modal_host()`, `modal_detail()`, `MODAL_JS` |
 | 6.18 | Card shell `.card` | `card()` |
+| 6.27 | Ranked bar list `.bar-list` | `bar_list()` |
+| 6.28 | Tracker strip `.tracker` | `tracker()` |
+| 6.29 | Metric-tab hero `.metric-tabs` | `metric_hero()` |
 
 ### `docs/design/chrome.md` — §6b — what interactive pages are operated with
 
@@ -396,20 +561,26 @@ before writing the markup.** Which files a page needs is mechanical:
 
 | § | Component | Helper |
 |---|---|---|
-| 11b.1 | What changes, and why |  |
-| 11b.2 | The masthead |  |
+| 11b.1 | What changes, and why — two voices, book paragraphing |  |
+| 11b.2 | The masthead and its meta line | `article_head()` |
 | 11b.3 | One drop cap, or none |  |
-| 11b.4 | Links become text |  |
+| 11b.4 | Links become text — with internal anchors | `source_list()` |
+| 11b.5 | Margin asides | `aside_note()` |
+| 11b.6 | Three width tiers |  |
+| 11b.7 | Apparatus: dinkus, epigraph, mini-TOC, end matter | `mini_toc()` |
+| 11b.8 | Print |  |
 
 ---
 
 ## 8. Dark mode
 
 Via `prefers-color-scheme` in the same tokens, no toggle, no JavaScript.
-Rules: surfaces go dark, **text is not pure white on black** (`#f7f7f8` on
-`#17171b`), shadows are dropped, borders take over the separation, series and status colors
-are their own, validated steps (see 2.4). Every color change is checked in **both**
-modes.
+Rules: surfaces go dark **and carry the 2–3 % violet tint** (2.1 — never
+pure neutral black), **text is not pure white on black** (`#f7f7f8` on
+`#17161c`), shadows are dropped, borders take over the separation, series and status colors
+are their own, validated steps (see 2.4). Dark is a re-derivation of the
+same 10-step scales (2.1), which is what keeps it a designed mode instead of
+an inverted one. Every color change is checked in **both** modes.
 
 ---
 
@@ -467,6 +638,22 @@ html = f"<style>{TOKENS}{BASE_CSS}</style>" + body
 - [ ] No external resources (`render.py --check` ⇒ 0 external references).
 - [ ] For sensitive data: confidentiality note in the footer.
 - [ ] After a color change: validator run, result recorded in section 2.4.
+- [ ] The first screen answers the question the page is opened for; sections run
+      living data → reference, reference rows closed (5.1).
+- [ ] No number appears twice — tiles restate neither the focus card nor each other (5.1).
+- [ ] Nothing empty renders as a card: one `.empty` line, a `.banner` when the absence
+      is the alert, or nothing (5.1 — `--check` flags empty card bodies).
+- [ ] Table cells are atoms (`--check` flags cells over 80 characters); no column with
+      identical values (5.1).
+- [ ] Lists over eight rows truncate via `show_all()` or closed `.acc` rows; filters
+      are view-only and never the sole path to content (5.1 / 6.5 / 6.6).
+- [ ] Exactly one sanctioned opening — focus card, metric-tab hero, or
+      needs-attention queue (5.2); bento only where the author ranked the tiles (5.3).
+- [ ] Red appears only where action is required (2.3); breakdowns that rank use the
+      bar list (6.27), status-over-time the tracker (6.28).
+- [ ] Sections run general → specific, one section per subsystem in data-flow order;
+      unlike capacities are normalized to percentages before they are compared (5.1,
+      skills/new/section-page.md).
 
 For an **interactive page** (11), additionally:
 
@@ -496,6 +683,25 @@ For an **interactive page** (11), additionally:
 
 | Element | Source |
 |---|---|
+| 10-step scale architecture under the tokens; dark as re-derivation | Geist (Vercel), adopted 2026-08-18 |
+| Violet-tinted dark surfaces, never pure neutral black | Linear teardown, Bear Blog; 2026-08-18 |
+| Tabular numerals everywhere numbers align; mono metadata voice | Mercury, 2026 "technical mono" direction; 2026-08-18 |
+| Ranked bar list (6.27) | Plausible, Tremor bar-list; 2026-08-18 |
+| Tracker strip (6.28) | Tremor tracker; 2026-08-18 |
+| Metric-tab hero (6.29), sanctioned openings incl. needs-attention queue | Plausible; Ramp/Brex/Stripe operator dashboards; 2026-08-18 |
+| KPI tile variants: trend sentence, capacity, dual delta, triplet | Tremor, shadcn; 2026-08-18 |
+| Count chips on section heads; decimal sub-numbering | Linear, Linear Method; 2026-08-18 |
+| Bento tiering (author-ranked pages only; rejected for the index) | 2025–26 bento analyses; 2026-08-18 |
+| Table-first sections: sticky tinted header, alignment triad, generation-time density | Mercury, Stripe; 2026-08-18 |
+| Index growth path (cards → strip → rows), kind glyphs, one hero slot | NN/g cards research, Vercel docs, Primer, Notion Home; 2026-08-18 |
+| Cross-page chrome (pagebar); absolute dates only in static output | GOV.UK mirrored nav; minimal.gallery inverted; 2026-08-18 |
+| Serif reading face, two voices, book paragraphing, width tiers, asides | Modern Font Stacks, Butterick, Tufte CSS, gwern, Comeau, iA; 2026-08-18 |
+| Dinkus, epigraph, tracked caps, designed end matter, colophon, mini-TOC | Craig Mod, Tufte CSS, gwern; 2026-08-18 |
+| Checklist person-states (n/a, deferred), attention inversion | GOV.UK task list; 2026-08-18 |
+| Exclusive "None" behind an "or" divider; live-shrinking totals | GOV.UK checkboxes, question-pages removal studies; 2026-08-18 |
+| Review confirmation sentence; "not provided"; not-asked count | GOV.UK check-your-answers, USWDS "keep a record"; 2026-08-18 |
+| Confirmed, unchanged: token dual themes, hairlines over shadows, one accent, grouped three-screen questionnaire, cards at small counts, content-in-document/print-as-record, 720 px reading consensus | 2026-08-18 research sweep |
+| Rejected (do not re-litigate): one-question-per-page, step maps, error summaries, bento index, glass/gradients/scrollytelling, relative timestamps, client filtering/pagination/search, `font-variant: small-caps`, AI insight panels, prev/next page chrome, section-level self-declared completion (conflicts with 11.6 — item-level n/a and deferred carry the person's statements instead) | same sweep |
 | Long-form tier: reading column, masthead, drop cap, links as text | own addition 2026-08-03 |
 | Check row, content-addressed state, chrome hidden in print | own addition 2026-08-02 |
 | Interactive pages: three script purposes, content in the document | own addition 2026-08-02 |

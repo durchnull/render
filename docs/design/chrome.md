@@ -35,6 +35,18 @@ Selected state carries `aria-pressed="true"` **and** a visible accent border plu
 glyph — pressed state never rides on the background tint alone (2.3). Focus ring from the
 token set, always visible, never removed.
 
+**Exclusive options** (multi-select only): "None of these" is the *last*
+option, behind a literal "or" divider (`.q-or`, GOV.UK checkboxes). Choosing
+it clears the others; choosing any other clears it — the two claims cannot be
+held at once. Without scripting it degrades to a plain option. "None" is an
+answer about the world; Skip (11.4) remains the control about the respondent
+— a spec never offers "none" as a substitute for skipping.
+
+**The visible escape IS the optional-marking** (Baymard): nothing is ever
+marked "(optional)" per field — a blanket note gets skimmed and forgotten,
+and per-field marks ×20 are noise. What communicates it is Skip and
+Don't-know standing visibly on *every* question (11.4).
+
 ### 6.20 Field `.field` — `field()`, `text_field()`, `amount_field()`
 
 A labeled control. The label is a real `<label for=…>`; the control is a real `<input>` or
@@ -73,6 +85,13 @@ progress_bar(3, 12, left="Section 2 · Records", approx=True)
 question can be skipped by a condition: an exact total that later turns out wrong is worse
 than an honest upper bound.
 
+Two sharpenings (GOV.UK): the visible total is the **live** one — it shrinks
+when a branch closes and grows when one opens, with the "≤" prefix saying it
+is conditional; and **skipping advances the bar exactly like answering** —
+skip is a first-class answer (11.4), and a bar that stalls on it would teach
+people that skipping is failure. Never a step map: removal studies found no
+effect on completion, and this design has three screens.
+
 ### 6.23 Action bar `.actionbar` — `action_bar()`
 
 Fixed to the bottom edge, translucent with a blurred backdrop and a hairline above —
@@ -103,6 +122,13 @@ summary_row("03", "Were the receipts recorded?", answer="Yes, in full",
 (2.3) — an unanswered row is visibly marked and still clickable, because a review list you
 cannot act on is a report, not an editor.
 
+The review screen is the GOV.UK check-your-answers pattern: an untouched row
+reads **"not provided"** (a neutral noun, never red — skipped and don't-know
+each keep their own word, because merging the opt-outs fogs the data); the
+row jumps back to its question with state fully restored; and **one sentence
+above the copy action** reframes copy-back as the deliberate hand-off it is
+(string `q_confirm`), never a form submit.
+
 ### 6.26 Check row `.ck-row` — `check_row()`
 
 One instruction from a maintained document, with its state, its context and a place to
@@ -122,11 +148,24 @@ badge), detail prose, and the note disclosure (6.21). The tick is the only contr
 changes state; the rest of the row stays selectable text, so a person can copy an
 instruction without toggling it.
 
-- **Three states, closed set:** `open` · `done` · `obsolete`. `done` carries
-  `aria-pressed="true"`, an accent tick glyph and an accent border — never the background
-  tint alone (2.3). `obsolete` strikes the instruction, dims it to `--muted`, and
-  **disables the tick**: it is a statement the document makes, not progress the reader
-  records.
+- **Five states, closed set:** `open` · `done` · `obsolete` · `na` ·
+  `deferred`. `done` carries `aria-pressed="true"`, an accent tick glyph and
+  an accent border — never the background tint alone (2.3). `obsolete`
+  strikes the instruction, dims it to `--muted`, and **disables the tick**:
+  it is a statement the document makes, not progress the reader records.
+  `na` ("does not apply") and `deferred` ("later" — GOV.UK's "I'll come back
+  to it later") are statements the **person** makes, set by ghost toggles
+  beside the note opener and taken back the same way. n/a is an *affirmative
+  answer*: it counts as handled in every ratio; deferred stays open work.
+- **Attention is inverted** (GOV.UK task list): the states still asking for
+  work carry the right-aligned sentence-case tag — `deferred` on a warm soft
+  surface, `obsolete` and `na` neutral; `done` and untouched `open` rows sit
+  quiet. Color points at what is pending, never at what is finished — no
+  strikethrough theatrics on done.
+- **Item anatomy:** the visible row is instruction · context (path, due
+  badge) · detail · note. One-line hints stay one sentence with no full stop
+  and never carry links; per-item timestamps belong in the hand-back data,
+  not the visible row — visual quiet for handled items.
 - The first argument is the row's **fingerprint** — the stable id that keys its browser
   state and travels in the hand-back. It is content-derived, never positional, so the row
   survives everything in the document moving around it (11.7).

@@ -42,7 +42,7 @@ SPEC_KEYS = {"id", "title", "intro", "estimate", "impact", "created",
 SECTION_KEYS = {"title", "intro", "questions", "meta"}
 QUESTION_KEYS = {"id", "question", "why", "context", "detail", "type", "options",
                  "allow-note", "note-label", "unit", "placeholder", "show-if", "meta"}
-OPTION_KEYS = {"key", "label", "hint", "note"}
+OPTION_KEYS = {"key", "label", "hint", "note", "exclusive"}
 SHOW_IF_KEYS = {"question", "answer"}
 
 # User-visible text. English defaults; a project overrides any key through
@@ -66,6 +66,9 @@ STRINGS = {
     "q_summary_title": "Your answers",
     "q_summary_lead": ("Every row jumps back to its question. Nothing here is "
                        "mandatory — hand back what you have."),
+    "q_or": "or",
+    "q_confirm": ("Copying the block below is the hand-off: these answers, "
+                  "as they stand above, go back into the chat."),
     "q_copy": "Copy the answers",
     "q_copy_hint": "Paste this block back into the chat.",
     "q_keys": "Keys: 1–9 choose · ← → move · Enter continues",
@@ -76,7 +79,8 @@ STRINGS = {
     "q_no_storage": ("This browser will not remember answers — best to finish "
                      "in one sitting and copy the result out."),
     "q_question": "Question",
-    "q_questions": "Questions",
+    "q_n_questions": "{n} questions",
+    "q_one_question": "1 question",
     "q_privacy": ("Your answers stay in this browser, on this device, until you "
                   "copy them out. This page loads nothing and sends nothing."),
     "q_generated": "Generated on {generated}",
@@ -214,9 +218,20 @@ def _validate_question(q, where: str, seen_ids: dict, order: list,
                 bad.append(f"{spot}: 'hint' must be a string")
             if "note" in opt and not isinstance(opt["note"], bool):
                 bad.append(f"{spot}: 'note' must be true or false")
+            if "exclusive" in opt and not isinstance(opt["exclusive"], bool):
+                bad.append(f"{spot}: 'exclusive' must be true or false")
         dupes = sorted({k for k in keys if keys.count(k) > 1})
         if dupes:
             bad.append(f"{where}: option keys must be unique — {', '.join(dupes)}")
+        marked = [bool(o.get("exclusive")) for o in options if isinstance(o, dict)]
+        if any(marked):
+            if qtype == "single":
+                bad.append(f"{where}: 'exclusive' belongs to a multi question — "
+                           "on a single choice every option already excludes "
+                           "the others")
+            elif not all(marked[marked.index(True):]):
+                bad.append(f"{where}: exclusive options must come last — they "
+                           "render behind an 'or' divider (GOV.UK checkboxes)")
         if _text(qid):
             option_keys[qid] = set(keys)
         if "unit" in q:
@@ -313,6 +328,12 @@ def css() -> str:
 .q-copy { display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap;
           margin-bottom: var(--s3); }
 .q-copy .hint { font-size: var(--fs-meta); color: var(--muted); }
+.q-confirm { font-size: var(--fs-meta); color: var(--muted); margin: 0 0 var(--s3); }
+/* The "or" divider before an exclusive option (6.19). */
+.q-or { display: flex; align-items: center; gap: var(--s3);
+  font-size: var(--fs-meta); color: var(--muted); margin: var(--s3) 0; }
+.q-or::before, .q-or::after { content: ""; flex: 1 1 auto;
+  border-top: 1px solid var(--hairline); }
 """
 
 
@@ -327,15 +348,18 @@ def summary(spec, ctx) -> dict:
 
     What someone deciding whether to open it wants to know is how long it
     will take and how much there is — so the estimate and the question count
-    go on the card, and the intro supplies the sentence.
+    make the card's meta line, the question count also draws its cover
+    motif, and the intro supplies the sentence.
     """
     s = ctx.strings
-    facts = [(s["q_questions"], len(_questions(spec)))]
+    n = len(_questions(spec))
+    # The estimate verbatim, no prefix: authors write it as a phrase
+    # ("about two minutes"), and a prefix would double the "about".
+    meta = [s["q_one_question"] if n == 1 else s["q_n_questions"].format(n=n)]
     if spec.get("estimate"):
-        facts.append((s["q_estimate"], spec["estimate"]))
-    if spec.get("created"):
-        facts.append((s["q_created"], spec["created"]))
-    return {"title": spec.get("title"), "desc": spec.get("intro"), "facts": facts}
+        meta.append(str(spec["estimate"]))
+    return {"title": spec.get("title"), "desc": spec.get("intro"),
+            "meta": meta, "cover": {"form": "list", "n": n}}
 
 
 def footer(spec, ctx, generated: str) -> str:
@@ -390,6 +414,9 @@ def build(spec, ctx):
         if q.get("type", "single") in ("single", "multi"):
             entry["options"] = [{"key": o["key"], "label": o["label"]}
                                 for o in q["options"]]
+            exclusive = [o["key"] for o in q["options"] if o.get("exclusive")]
+            if exclusive:
+                entry["exclusive"] = exclusive
         if "show-if" in q:
             answer = q["show-if"]["answer"]
             entry["showIf"] = {"question": q["show-if"]["question"],
@@ -481,9 +508,17 @@ def _question_screen(q, section, si: int, n: int, total: int, ctx) -> str:
               if q.get("detail") else "")
 
     if qtype in ("single", "multi"):
-        control = "".join(
-            option_row(o["key"], o["label"], hint=o.get("hint", ""), index=i, name=qid)
-            for i, o in enumerate(q["options"]))
+        # An exclusive "None of these" closes the list behind a literal "or"
+        # divider (GOV.UK checkboxes): "none" is an answer about the world;
+        # Skip below stays the control about the respondent.
+        rows, divided = [], False
+        for i, o in enumerate(q["options"]):
+            if o.get("exclusive") and not divided:
+                rows.append(f"<div class='q-or' aria-hidden='true'>{esc(s['q_or'])}</div>")
+                divided = True
+            rows.append(option_row(o["key"], o["label"], hint=o.get("hint", ""),
+                                   index=i, name=qid))
+        control = "".join(rows)
     elif qtype == "amount":
         control = amount_field(f"{qid}-value", q["question"], unit=q.get("unit", ""),
                                placeholder=q.get("placeholder", ""))
@@ -519,7 +554,10 @@ def _summary_screen(spec, ctx, flat) -> str:
     rows = "".join(
         summary_row(f"{n:02d}", q["question"], state="open", target=q["id"])
         for n, (_, _, q) in enumerate(flat, start=1))
-    copy_row = (f"<div class='q-copy'>"
+    # One sentence above the copy action reframes copy-back as a deliberate
+    # hand-off (GOV.UK check-your-answers register), never a form submit.
+    copy_row = (f"<p class='q-confirm'>{esc(s['q_confirm'])}</p>"
+                f"<div class='q-copy'>"
                 f"<button type='button' class='btn btn--primary' id='q-copy'>"
                 f"{esc(s['q_copy'])}</button>"
                 f"<span class='hint'>{esc(s['q_copy_hint'])}</span></div>")
@@ -658,9 +696,11 @@ QUESTION_JS = r"""
     });
     var bar = document.querySelector('.progress .meter');
     var done = counted(), total = live.length;
-    /* The bar tracks what is on the table; the printed total stays the upper
-       bound, because a condition can only ever add questions (6.22). */
-    var shown = data.approx ? data.questions.length : total;
+    /* Progress honesty (6.22): the visible total is the LIVE one — it shrinks
+       when a branch closes and grows when one opens, and the "≤" prefix keeps
+       saying it is conditional. A frozen upper bound would be precise and
+       wrong at once. */
+    var shown = total;
     if (bar) {
       var fill = bar.querySelector('i');
       if (fill) fill.style.width = (total ? (done / total * 100) : 0).toFixed(1) + '%';
@@ -793,8 +833,16 @@ QUESTION_JS = r"""
     commit();                       /* a half-typed note is never lost (11.6) */
     var q = byId[id], a = answer(id);
     if (q.type === 'multi') {
-      var at = a.v.indexOf(key);
-      if (at >= 0) a.v.splice(at, 1); else a.v.push(key);
+      /* An exclusive option ("None of these") clears the rest, and any other
+         choice clears it — the two claims cannot be held at once (6.19). */
+      var ex = q.exclusive || [];
+      if (ex.indexOf(key) >= 0) {
+        a.v = (a.v.indexOf(key) >= 0) ? [] : [key];
+      } else {
+        var at = a.v.indexOf(key);
+        if (at >= 0) a.v.splice(at, 1); else a.v.push(key);
+        a.v = a.v.filter(function (k) { return ex.indexOf(k) < 0; });
+      }
       a.state = a.v.length ? 'answered' : 'open';
     } else {
       a.v = [key];
@@ -843,8 +891,14 @@ QUESTION_JS = r"""
     lines.push('### ' + data.marker);
     lines.push('source: ' + data.id);
     lines.push('title: ' + data.title);
+    /* Not-asked is counted, not listed: a closed branch's questions stay
+       absent below (they were never on the table), and the count is what
+       lets the agent tell not-asked from skipped (docs/handback.md). */
     lines.push('status: ' + done + ' of ' + live.length + ' answered · '
-               + unclear + ' unclear · ' + skipped + ' skipped');
+               + unclear + ' unclear · ' + skipped + ' skipped'
+               + (data.approx
+                  ? ' · ' + (data.questions.length - live.length) + ' not asked'
+                  : ''));
     var section = -1;
     live.forEach(function (q) {
       if (q.section !== section) {
