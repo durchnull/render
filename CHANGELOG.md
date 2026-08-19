@@ -8,6 +8,68 @@ project follows [Semantic Versioning](https://semver.org) and
 and section contracts (including the timeline status values), the
 `STRINGS` schema and the command surface may change in a minor release.
 
+## [0.2.0] — 2026-08-19
+
+### Added
+
+- **A component vocabulary for pages that report rather than list.** KPI
+  tiles (`tile`, `tile_group`), a tab-style filter row that narrows a list
+  in the page with no reload (`filter_row`), list rows with a
+  show-all cap (`list_row`, `show_all`), ranked bar lists (`bar_list`), a
+  tracker strip (`tracker`), a metric-tab hero (`metric_hero`) and the
+  heading pair (`section_head`, `subhead`). All of them are available to a
+  project's own sections and to standalone scripts through
+  `engine/page_api.py`, and `python3 engine/gallery.py` renders each one
+  beside the snippet that produced it.
+- **Long-form apparatus for `/render:article`.** Footnotes are extracted
+  and either woven into the margin as asides or set as end matter;
+  headings take anchors, links become readable text with their sources
+  listed, and the renderer picks one paragraph mode per document. Three
+  width tiers and a print stylesheet.
+- **A checklist page can answer `n/a` and `later`.** Neither has a
+  checkbox form in the source document, so the hand-back parser routes
+  both under `judgment:` for the agent to place, and counts them toward
+  the page's control listing so they do not read as drift. This is
+  hand-back grammar version 3; a page written by an older release still
+  parses.
+- **`examples/section-project/`** — the worked example of a section page,
+  a status dashboard built from a markdown file, a JSON file and a
+  directory of release notes. The test suite finds examples by globbing,
+  so it is a fixture from the moment it exists.
+
+### Changed
+
+- **The index page is rebuilt.** Each page now gets a card that describes
+  it: a cover drawn from what the page actually holds (its sections, its
+  checks, its list), a glyph per kind, and a grid that falls back to rows
+  once there are enough pages to warrant it. Recently changed pages get a
+  strip of their own. A kind still describes its instances through the
+  optional `summary()` hook.
+- **The token layer sits on two ten-step scales** underneath the semantic
+  names. Dark surfaces are tinted rather than pure neutral, and red is
+  reserved for what needs attention now — a status that is merely
+  noteworthy no longer borrows it.
+- **The fragment cache version moved to 3.** The first run after updating
+  re-renders every page once, then returns to normal. Nothing is lost and
+  no action is needed; the run is just slower than usual.
+
+### Removed
+
+- Six index strings the rebuilt page no longer reads: `idx_changed`,
+  `idx_lead`, `idx_pages`, `idx_sections`, `idx_size`, `idx_source`.
+
+  **If your `.render/config.py` translates `STRINGS`, read this.** Unknown
+  keys have always been ignored, so a project carrying the six above keeps
+  working — they simply stop having any effect. The twelve keys added this
+  release fall back to their English defaults until you translate them, so
+  a translated project will see English in the new components until it
+  does: `chrome_index`, `check_deferred`, `check_na`, `check_todo`,
+  `filter_all`, `filter_aria`, `filter_empty`, `show_all`, `toc_contents`,
+  `idx_n_sections`, `idx_one_section`, `idx_updated`. `config.py` belongs
+  to the project, so `/render:init` will not touch it and nothing warns
+  about this — the commented `STRINGS` block in `templates/config.py`
+  shows the current set.
+
 ## [0.1.1] — 2026-08-09
 
 ### Changed
